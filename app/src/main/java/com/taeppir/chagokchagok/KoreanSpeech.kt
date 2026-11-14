@@ -20,6 +20,7 @@ internal class KoreanSpeech(
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val timeout = Runnable { onFinished(R.string.speech_timeout) }
+    private val noResult = Runnable { onFinished(R.string.speech_no_result) }
     private var sdk: SpeechToText? = null
     private var listenerAdded = false
     private var requested = false
@@ -40,7 +41,9 @@ internal class KoreanSpeech(
         override fun onUpdatedEpdData(on: Long, off: Long) = Unit
         override fun onUpdatedRms(rms: Double) = Unit
         override fun onEndedRecognition() = dispatch {
-            onFinished(R.string.speech_no_result)
+            // Speech Service may report the end of audio before sending the final transcript.
+            main.removeCallbacks(noResult)
+            main.postDelayed(noResult, FINAL_RESULT_WAIT_MS)
         }
         override fun onError(errorType: ErrorType) = dispatch {
             reportError(errorType.toString())
@@ -77,6 +80,7 @@ internal class KoreanSpeech(
     fun close() {
         closed = true
         main.removeCallbacks(timeout)
+        main.removeCallbacks(noResult)
         val speech = sdk ?: return
         sdk = null
         if (requested) cleanup { speech.stop() }
@@ -104,5 +108,6 @@ internal class KoreanSpeech(
     private companion object {
         const val TAG = "ChagokSpeech"
         const val SESSION_TIMEOUT_MS = 20_000L
+        const val FINAL_RESULT_WAIT_MS = 1_500L
     }
 }
