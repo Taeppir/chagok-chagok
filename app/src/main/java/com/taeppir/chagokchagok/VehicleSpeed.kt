@@ -32,8 +32,8 @@ internal class VehicleSpeed(
             if (speed != lastSpeed) {
                 lastSpeed = speed
                 Log.i(TAG, "PERF_VEHICLE_SPEED=${speed} m/s")
-                onSpeed(speed)
             }
+            onSpeed(speed)
         }
 
         override fun onErrorEvent(propertyId: Int, areaId: Int) {
