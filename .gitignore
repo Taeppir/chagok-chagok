@@ -14,3 +14,6 @@ server/.env
 server/generated/
 
 **/__pycache__/
+
+community.properties
+*.apk.idsig
