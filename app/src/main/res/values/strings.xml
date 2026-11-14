@@ -76,11 +76,15 @@
     <string name="nav_player">플레이어</string>
     <string name="nav_story">여행 이야기</string>
     <string name="nav_sound">사운드</string>
-    <string name="family_soundtrack">OUR FAMILY SOUNDTRACK</string>
-    <string name="story_preview_empty">함께 웃었던 순간을 남겨 주세요.</string>
+    <string name="family_soundtrack">FAMILY SOUNDTRACK</string>
+    <string name="story_preview_empty">함께한 순간, 오래 듣고 싶은 이야기.</string>
     <string name="sound_heading">우리 여행의 소리</string>
     <string name="back_to_player">플레이어로</string>
     <string name="edit_story">이야기 남기기</string>
     <string name="edit_sound">사운드 바꾸기</string>
-    <string name="vocal_pending">현재는 비트 미리듣기예요. AI 가사·보컬곡은 연결 준비 중입니다.</string>
+    <string name="vocal_pending">로컬 비트 미리듣기 · AI 보컬곡 연결 준비 중</string>
+    <string name="screen_player">나의 사운드트랙</string>
+    <string name="parked_status">주차 중</string>
+    <string name="park_required">주차 후 이용</string>
+    <string name="brand_tagline">여행을 담다.\n음악이 되다.</string>
 </resources>
