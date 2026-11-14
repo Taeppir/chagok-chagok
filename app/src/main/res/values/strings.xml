@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">차곡차곡</string>
+    <string name="speed_heading">차량 속도</string>
+    <string name="speed_start">차량 속도 연결</string>
+    <string name="speed_waiting">속도 신호를 기다리는 중</string>
+    <string name="speed_disconnected">차량 서비스 연결 대기 중</string>
+    <string name="speed_unavailable">차량 속도를 읽을 수 없습니다.</string>
+    <string name="speed_denied">속도를 읽으려면 차량 속도 권한이 필요합니다.</string>
+    <string name="speed_value">%1$.1f km/h (%2$.2f m/s)</string>
+    <string name="speech_heading">한국어 음성 인식</string>
+    <string name="speech_start">음성 인식 시작</string>
+    <string name="speech_stop">음성 인식 중지</string>
+    <string name="speech_idle">주차 상태에서 버튼을 눌러 짧게 말해 주세요.</string>
+    <string name="speech_connecting">음성 서비스를 연결하는 중</string>
+    <string name="speech_listening">듣고 있습니다.</string>
+    <string name="speech_stopped">음성 인식을 중지했습니다.</string>
+    <string name="speech_no_result">인식된 문장이 없습니다. 다시 말해 주세요.</string>
+    <string name="speech_complete">음성 인식 완료</string>
+    <string name="speech_timeout">음성 인식 시간이 초과되었습니다.</string>
+    <string name="speech_error">음성 인식 오류 (%1$s)</string>
+</resources>
