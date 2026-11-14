@@ -56,7 +56,9 @@ internal class AiSongs(private val context: Context, private val changed: () -> 
         }
         val saved=directory.listFiles().orEmpty().filter {it.extension=="json"}.mapNotNull {runCatching {JSONObject(it.readText())}.getOrNull()}
         val currentDemoIds=demos.map {it.optString("id")}.toSet()
-        return (saved.filter { !it.optBoolean("demo") || it.optString("id") in currentDemoIds }+demos).distinctBy {it.optString("id")}.filter {it.optString("status")=="ready"}
+        // Bundled metadata may gain corrected lyric timing in an app update.
+        // User titles live separately; never let an older demo cache hide the update.
+        return (demos+saved.filter { !it.optBoolean("demo") && it.optString("id") !in currentDemoIds }).distinctBy {it.optString("id")}.filter {it.optString("status")=="ready"}
     }
 
     fun select(item: JSONObject) {
