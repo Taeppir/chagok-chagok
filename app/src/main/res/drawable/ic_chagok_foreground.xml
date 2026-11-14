@@ -1,5 +1,7 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:width="88dp" android:height="52dp" android:gravity="center">
-        <bitmap android:src="@drawable/chagok_brand" android:gravity="fill" android:filter="true" />
-    </item>
-</layer-list>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="18%"
+    android:insetRight="18%"
+    android:insetTop="31%"
+    android:insetBottom="31%">
+    <bitmap android:src="@drawable/chagok_brand" android:gravity="fill" android:filter="true" />
+</inset>
