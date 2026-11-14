@@ -8,3 +8,9 @@
 *.apk
 *.jks
 *.keystore
+
+server/.env
+
+server/generated/
+
+**/__pycache__/

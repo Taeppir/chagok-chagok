@@ -41,6 +41,16 @@ internal class BackingTrack(context: Context, private val onStatus: (Int) -> Uni
             field = value
             track?.setLoopPoints(0, frameCount, if (value) -1 else 0)
         }
+    private var envelope = FloatArray(0)
+    fun visualLevels(): FloatArray {
+        val player = track ?: return FloatArray(48)
+        if (!active || envelope.isEmpty()) return FloatArray(48)
+        val center = (player.playbackHeadPosition % frameCount) / 480
+        return FloatArray(48) { offset ->
+            val index = center + offset - 24
+            if (looping) envelope[Math.floorMod(index, envelope.size)] else envelope.getOrElse(index) { 0f }
+        }
+    }
     private var frameCount = 0
     val progress: Float
         get() = track?.let { if (frameCount > 0) (it.playbackHeadPosition % frameCount).toFloat() / frameCount else 0f } ?: 0f
@@ -63,8 +73,16 @@ internal class BackingTrack(context: Context, private val onStatus: (Int) -> Uni
                 main.post { if (request == generation) { stop(); onStatus(R.string.track_failed) } }
                 return@Thread
             }
+            val levels = FloatArray((pcm.size + 479) / 480) { block ->
+                val start = block * 480
+                val end = min(start + 480, pcm.size)
+                var sum = 0.0
+                for (i in start until end) { val value = pcm[i] / 32768.0; sum += value * value }
+                (kotlin.math.sqrt(sum / (end - start)) * 3.2).toFloat().coerceIn(0f, 1f)
+            }
             main.post {
                 if (request == generation) {
+                    envelope = levels
                     startPlayback(pcm)
                     if (track != null) {
                         Log.i("ChagokTrack", "Playback started: bpm=${arrangement.bpm}, genre=${arrangement.genre}, syncopated=${arrangement.syncopated}, frames=${pcm.size}")
@@ -117,6 +135,7 @@ internal class BackingTrack(context: Context, private val onStatus: (Int) -> Uni
         player?.release()
         if (active) audio.abandonAudioFocusRequest(focus)
         active = false
+        envelope = FloatArray(0)
     }
 
     companion object {

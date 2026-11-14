@@ -23,6 +23,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -47,6 +48,12 @@ class MainActivity : Activity() {
     private var previewWindows = 0
     private var preview = false
     private lateinit var beatPattern: BeatPatternView
+    private lateinit var audioPulse: AudioPulseView
+    private lateinit var storyPreview: TextView
+    private val pages = mutableListOf<View>()
+    private val tabs = mutableListOf<Button>()
+    private var currentPage = 0
+    private lateinit var pageScroll: ScrollView
     private lateinit var driveStatus: TextView
     private lateinit var driveButton: Button
     private lateinit var tempo: TextView
@@ -104,7 +111,7 @@ class MainActivity : Activity() {
         }
         selectedExample = savedInstanceState?.getInt("example")?.takeIf { it > 0 }
 
-        val compact = resources.configuration.screenWidthDp < 950
+        val compact = resources.configuration.screenWidthDp < 950 || resources.configuration.fontScale > 1.4f
         val gutter = dp(if (compact) 24 else 56)
         val content = column().apply {
             setPadding(gutter, dp(32), gutter, dp(48))
@@ -120,30 +127,33 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { marginStart = dp(12) })
         }
-        content.addView(masthead)
-
-
-        val panels = LinearLayout(this).apply {
-            orientation = if (compact) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-            gravity = Gravity.TOP
+        val navigation = buttonRow(listOf(
+            action(R.string.nav_player, ButtonStyle.Plain, R.drawable.ic_music) { selectPage(0) },
+            action(R.string.nav_story, ButtonStyle.Plain, R.drawable.ic_car) { selectPage(1) },
+            action(R.string.nav_sound, ButtonStyle.Plain, R.drawable.ic_mixer) { selectPage(2) },
+        ).also { tabs.addAll(it) })
+        if (compact) {
+            content.addView(masthead)
+            content.addSpaced(navigation, 20)
+        } else {
+            masthead.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+            masthead.addView(navigation, LinearLayout.LayoutParams(dp(720), ViewGroup.LayoutParams.WRAP_CONTENT))
+            content.addView(masthead)
         }
         val storyPanel = buildStoryPanel()
         val musicPanel = buildMusicPanel(compact)
-        if (compact) {
-            panels.addView(storyPanel)
-            panels.addSpaced(musicPanel, 40)
-        } else {
-            panels.addView(storyPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f))
-            panels.addView(musicPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f).apply {
-                marginStart = dp(56)
-            })
-        }
-        content.addSpaced(panels, 36)
-        setContentView(ScrollView(this).apply {
+        val soundPanel = buildSoundPanel()
+        pages.addAll(listOf(musicPanel, storyPanel, soundPanel))
+        val panels = FrameLayout(this)
+        pages.forEach { panels.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)) }
+        content.addSpaced(panels, 32)
+        pageScroll = ScrollView(this).apply {
             background = AuroraDrawable()
             isFillViewport = true
             addView(content)
-        })
+        }
+        setContentView(pageScroll)
+        selectPage(savedInstanceState?.getInt("page") ?: 0)
         content.requestFocus()
         story.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -159,7 +169,7 @@ class MainActivity : Activity() {
 
     private fun buildStoryPanel() = column().apply {
         setPadding(dp(28), dp(28), dp(28), dp(28))
-        background = shape(0xCCFFFFFF.toInt(), 28)
+        background = GlassDrawable(dp(36).toFloat())
         addView(heading(R.string.drive_heading, 32f))
         driveStatus = status(R.string.drive_idle)
         addSpaced(driveStatus, 8)
@@ -173,13 +183,13 @@ class MainActivity : Activity() {
             setHint(R.string.story_hint)
             setTextColor(INK)
             setHintTextColor(MUTED)
-            textSize = 23f
+            textSize = 28f
             gravity = Gravity.TOP or Gravity.START
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             minLines = 2
             maxLines = 4
-            minHeight = dp(90)
+            minHeight = dp(160)
             setPadding(dp(20), dp(14), dp(20), dp(14))
             background = StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_focused), shape(SURFACE, 10, INK, 3))
@@ -195,79 +205,111 @@ class MainActivity : Activity() {
         addSpaced(speechStatus, 4)
         weatherButton = action(R.string.weather_unknown, ButtonStyle.Plain, R.drawable.ic_track_weather) { chooseWeather() }
         addSpaced(weatherButton, 12)
-        addSpaced(heading(R.string.instrument_title, 25f), 24)
+        addSpaced(action(R.string.back_to_player, ButtonStyle.Solid, R.drawable.ic_music) { selectPage(0) }, 24)
+    }
+
+    private fun selectPage(index: Int) {
+        currentPage = index.coerceIn(0, 2)
+        pages.forEachIndexed { i, page -> page.visibility = if (i == currentPage) View.VISIBLE else View.GONE }
+        tabs.forEachIndexed { i, tab -> tab.isSelected = i == currentPage }
+        if (::pageScroll.isInitialized) pageScroll.post { pageScroll.scrollTo(0, 0) }
+        if (::story.isInitialized) {
+            story.clearFocus()
+            (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                .hideSoftInputFromWindow(story.windowToken, 0)
+        }
+    }
+
+    private fun buildMusicPanel(compact: Boolean) = column().apply {
+        val hero = LinearLayout(this@MainActivity).apply {
+            orientation = if (compact) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        audioPulse = AudioPulseView(this@MainActivity, track).apply {
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        val art = column().apply {
+            addSpaced(audioPulse, 0, if (compact) 320 else 600)
+        }
+        val controls = column().apply {
+            setPadding(dp(40), dp(40), dp(40), dp(40))
+            minimumHeight = dp(if (compact) 0 else 600)
+            background = GlassDrawable(dp(36).toFloat())
+            addView(label(R.string.family_soundtrack, 20f, MUTED, true).apply { letterSpacing = 0.15f })
+            addSpaced(heading(R.string.track_heading, 60f), 20)
+            storyPreview = label(R.string.story_preview_empty, 26f, INK).apply {
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            addSpaced(storyPreview, 20)
+            genreLabel = label(R.string.genre_pop, 24f, INK, true)
+            tempo = label(R.string.track_tempo_placeholder, 24f, INK, true)
+            addSpaced(LinearLayout(this@MainActivity).apply {
+                addView(genreLabel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(tempo)
+            }, 28)
+            tempoSource = label(R.string.track_default, 20f, MUTED)
+            addSpaced(tempoSource, 8)
+            rhythmLabel = label(R.string.rhythm_steady, 20f, MUTED)
+            addSpaced(rhythmLabel, 8)
+            playButton = action(R.string.track_play, ButtonStyle.Solid, R.drawable.ic_track_play) {
+                if (track.active) stopTrack() else if (!restricted) {
+                    if (speech != null) finishSpeech(R.string.speech_stopped)
+                    track.play(currentArrangement())
+                }
+                updateControls()
+            }
+            addSpaced(playButton, 28)
+            trackStatus = status(R.string.track_hint)
+            addSpaced(trackStatus, 10)
+            playProgress = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 1000
+                progressTintList = ColorStateList.valueOf(Color.rgb(76, 66, 193))
+                progressBackgroundTintList = ColorStateList.valueOf(0x335B67B0)
+                contentDescription = "믹스 재생 진행률"
+            }
+            addSpaced(playProgress, 20, 6)
+            playTime = status(R.string.track_hint)
+            addSpaced(playTime, 10)
+        }
+        if (compact) {
+            hero.addView(art)
+            hero.addSpaced(controls, 24)
+        } else {
+            hero.addView(art, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f))
+            hero.addView(controls, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f).apply { marginStart = dp(32) })
+        }
+        addView(hero)
+        addSpaced(buttonRow(listOf(
+            action(R.string.edit_story, ButtonStyle.Plain, R.drawable.ic_track_mic) { selectPage(1) },
+            action(R.string.edit_sound, ButtonStyle.Plain, R.drawable.ic_mixer) { selectPage(2) },
+        )), 24)
+        addSpaced(status(R.string.vocal_pending), 16)
+    }
+
+    private fun buildSoundPanel() = column().apply {
+        setPadding(dp(36), dp(32), dp(36), dp(32))
+        background = GlassDrawable(dp(36).toFloat())
+        addView(heading(R.string.sound_heading, 36f))
+        genreButton = action(R.string.choose_genre, ButtonStyle.Plain, R.drawable.ic_music) { chooseGenre() }
+        mixButton = action(R.string.rap_mode, ButtonStyle.Plain, R.drawable.ic_mixer) { chooseMix() }
+        addSpaced(buttonRow(listOf(genreButton, mixButton)), 24)
+        beatPattern = BeatPatternView(this@MainActivity, INK).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+        addSpaced(beatPattern, 24, 70)
+        addSpaced(heading(R.string.instrument_title, 28f), 28)
         val instrumentNames = listOf("와이퍼", "창문", "문", "깜빡이")
         val instrumentIcons = listOf(R.drawable.ic_wiper, R.drawable.ic_window, R.drawable.ic_door, R.drawable.ic_signal)
         instrumentNames.chunked(2).forEachIndexed { row, names ->
             addSpaced(buttonRow(names.mapIndexed { col, name ->
                 val index = row * 2 + col
-                action(R.string.instrument_demo, ButtonStyle.Plain, instrumentIcons[index]) {
-                    showInstrumentDetails()
-                }.apply { text = name; instrumentTiles.add(this) }
-            }), 10)
+                action(R.string.instrument_demo, ButtonStyle.Plain, instrumentIcons[index]) { showInstrumentDetails() }
+                    .apply { text = name; instrumentTiles.add(this) }
+            }), 12)
         }
         signalLabel = status(R.string.instrument_hint)
-        addSpaced(signalLabel, 8)
-
-
-
-    }
-
-    private fun buildMusicPanel(compact: Boolean) = column().apply {
-        setPadding(dp(28), dp(28), dp(28), dp(28))
-        background = shape(0xBFFFFFFF.toInt(), 28)
-        addView(heading(R.string.track_heading, 32f))
-        val sleeve = column().apply {
-            setPadding(dp(28), dp(24), dp(28), dp(24))
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFF96C6FF.toInt(), 0xFFCAB4FF.toInt(), 0xFFF5C5E7.toInt(), 0xFFA9EFE0.toInt())
-            ).apply { cornerRadius = dp(22).toFloat() }
-            genreLabel = label(R.string.genre_acoustic, 25f, INK, bold = true)
-            addView(genreLabel)
-            tempo = label(R.string.track_tempo_placeholder, if (compact) 54f else 84f, INK, bold = true).apply {
-                typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
-                letterSpacing = -0.025f
-                includeFontPadding = false
-            }
-            addSpaced(tempo, 6)
-            tempoSource = label(R.string.track_default, 20f, INK)
-            addSpaced(tempoSource, 4)
-            beatPattern = BeatPatternView(this@MainActivity, INK).apply {
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            }
-            addSpaced(beatPattern, 16, if (compact) 65 else 86)
-            rhythmLabel = label(R.string.rhythm_steady, 19f, INK)
-            addSpaced(rhythmLabel, 12)
-        }
-        addSpaced(sleeve, 16)
-        genreButton = action(R.string.choose_genre, ButtonStyle.Plain, R.drawable.ic_music) { chooseGenre() }
-
-
-        playButton = action(R.string.track_play, ButtonStyle.Solid, R.drawable.ic_track_play) {
-            if (track.active) stopTrack() else if (!restricted) {
-                if (speech != null) finishSpeech(R.string.speech_stopped)
-                track.play(currentArrangement())
-            }
-            updateControls()
-        }
-        addSpaced(playButton, 20)
-        trackStatus = status(R.string.track_hint)
-        addSpaced(trackStatus, 8)
-        playProgress = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 1000
-            progressTintList = ColorStateList.valueOf(Color.rgb(76, 66, 193))
-            progressBackgroundTintList = ColorStateList.valueOf(0x335B67B0)
-            contentDescription = "믹스 재생 진행률"
-        }
-        addSpaced(playProgress, 12, 6)
-        playTime = status(R.string.track_hint)
-        addSpaced(playTime, 8)
-        mixButton = action(R.string.rap_mode, ButtonStyle.Plain, R.drawable.ic_mixer) { chooseMix() }
-        addSpaced(buttonRow(listOf(genreButton, mixButton)), 16)
+        addSpaced(signalLabel, 12)
         val remix = action(R.string.remix, ButtonStyle.Plain, R.drawable.ic_shuffle) {
-            stopTrack()
-            variation = (variation + 1) % 16
-            updateControls()
+            stopTrack(); variation = (variation + 1) % 16; updateControls()
         }
         val examples = action(R.string.track_examples, ButtonStyle.Plain, R.drawable.ic_car) {
             choiceSheet("속도 미리듣기", listOf(
@@ -276,8 +318,8 @@ class MainActivity : Activity() {
                 "실제 주행 기록 사용" to { selectedExample = null },
             ))
         }
-        addSpaced(buttonRow(listOf(remix, examples)), 10)
-
+        addSpaced(buttonRow(listOf(remix, examples)), 24)
+        addSpaced(action(R.string.back_to_player, ButtonStyle.Solid, R.drawable.ic_track_play) { selectPage(0) }, 20)
     }
 
     override fun onStart() {
@@ -318,6 +360,7 @@ class MainActivity : Activity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("page", currentPage)
         outState.putInt("example", selectedExample ?: 0)
         super.onSaveInstanceState(outState)
     }
@@ -502,7 +545,9 @@ class MainActivity : Activity() {
         signalLabel.text = if (preview) "가상 신호 · 미리듣기" else "주행 신호 · 악기를 누르면 자세히"
         tempo.text = getString(R.string.track_tempo, arrangement.bpm)
         beatPattern.setPattern(arrangement)
-        genreLabel.text = getString(arrangement.genre.label) + " · DRIVE MIX"
+        genreLabel.text = getString(arrangement.genre.label)
+        storyPreview.text = story.text.toString().trim().ifEmpty { getString(R.string.story_preview_empty) }
+        audioPulse.invalidate()
         rhythmLabel.text = (if (trip.punchy) "둥둥 베이스" else "소프트") +
             (if (trip.rapMode) " · 랩 모드" else " · 멜로디") + (if (track.looping) " · 반복" else "")
         tempoSource.text = selectedExample?.let { getString(R.string.track_example_source, it) }
@@ -572,7 +617,7 @@ class MainActivity : Activity() {
     private fun action(id: Int, style: ButtonStyle, icon: Int? = null, click: () -> Unit) = Button(this).apply {
         setText(id)
         isAllCaps = false
-        textSize = if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) 29f else 21f
+        textSize = if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) 29f else 23f
         gravity = Gravity.CENTER_VERTICAL or if (icon == null) Gravity.CENTER_HORIZONTAL else Gravity.START
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         minHeight = dp(if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) 100 else 76)
@@ -599,12 +644,12 @@ class MainActivity : Activity() {
         compoundDrawablePadding = dp(12)
         icon?.let { setIcon(it) }
         val states = StateListDrawable().apply {
-            addState(disabled, shape(BACKGROUND, 10, RULE))
-            addState(focused, shape(ACCENT, 10, INK, 3))
-            addState(selected, shape(ACCENT, 10, INK, 2))
+            addState(disabled, shape(BACKGROUND, 20, RULE))
+            addState(focused, shape(ACCENT, 20, INK, 3))
+            addState(selected, shape(ACCENT, 20, INK, 2))
             addState(intArrayOf(), shape(fill, 20, outline))
         }
-        background = RippleDrawable(ColorStateList.valueOf(0x38748167), states, shape(Color.WHITE, 10))
+        background = RippleDrawable(ColorStateList.valueOf(0x38748167), states, shape(Color.WHITE, 20))
         setOnClickListener { click() }
     }
 

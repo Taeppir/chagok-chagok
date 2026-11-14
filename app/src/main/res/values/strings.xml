@@ -24,7 +24,7 @@
     <string name="drive_empty">유효한 속도 기록이 부족해 기본 믹스를 사용해요.</string>
     <string name="drive_failed">주행 기록을 시작하지 못했어요. 다시 시도해 주세요.</string>
     <string name="drive_summary">주행 저장됨 · %1$.1f km/h</string>
-    <string name="track_heading">드라이브 믹스</string>
+    <string name="track_heading">길 위의 우리</string>
     <string name="track_tempo_placeholder">94 BPM</string>
     <string name="weather_heading">여행 날씨 선택</string>
     <string name="track_tempo">%1$d BPM</string>
@@ -34,7 +34,7 @@
     <string name="track_examples">속도 체험</string>
     <string name="track_example_slow">느린 길 · 20 km/h</string>
     <string name="track_example_fast">빠른 길 · 72 km/h</string>
-    <string name="track_play">믹스 재생</string>
+    <string name="track_play">비트 미리듣기</string>
     <string name="track_stop">재생 중지</string>
     <string name="track_hint">재생 준비 완료</string>
     <string name="track_loading">드라이브 믹스를 만들고 있어요.</string>
@@ -73,4 +73,14 @@
     <string name="instrument_title">차 안의 악기들</string>
     <string name="instrument_demo">악기 미리듣기</string>
     <string name="instrument_hint">와이퍼는 셰이커, 창문 변화는 벨과 바람 신스로 더해져요.</string>
+    <string name="nav_player">플레이어</string>
+    <string name="nav_story">여행 이야기</string>
+    <string name="nav_sound">사운드</string>
+    <string name="family_soundtrack">OUR FAMILY SOUNDTRACK</string>
+    <string name="story_preview_empty">함께 웃었던 순간을 남겨 주세요.</string>
+    <string name="sound_heading">우리 여행의 소리</string>
+    <string name="back_to_player">플레이어로</string>
+    <string name="edit_story">이야기 남기기</string>
+    <string name="edit_sound">사운드 바꾸기</string>
+    <string name="vocal_pending">현재는 비트 미리듣기예요. AI 가사·보컬곡은 연결 준비 중입니다.</string>
 </resources>
