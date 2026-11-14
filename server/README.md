@@ -1,4 +1,4 @@
-# Family soundtrack bridge
+# Personal soundtrack bridge
 
 A small local server connects the Pleos app to Google Lyria 3.5. It sends a travel story, selected weather and an arrangement summary, then stores the returned Korean lyrics and MP3. Python 3.9 or later is sufficient; no packages are required.
 
@@ -17,7 +17,7 @@ python3 -B server/server.py --daily-limit 10
 adb -s emulator-5554 reverse tcp:8787 tcp:8787
 ```
 
-4. In the parked app, enter a travel story and choose **여행을 노래로**. Review the story and generation cost, then choose **노래 만들기**. The status text can be tapped to refresh after a connection interruption.
+4. Finish a recorded trip while parked, select a genre in **주행 리포트**, and choose **이야기를 더해 노래 만들기**. Review the story in **이야기 노트**, choose **노래 만들기**, then confirm the optional names and generation cost. Generation continues on the local server while the app polls for the result.
 
 The bridge binds only to `127.0.0.1:8787`. Cleartext Android traffic is allowed only for that loopback address. It rejects browser-origin requests and does not expose credentials or personal stories in access logs. The process must remain running while generating/downloading a new song. A downloaded song remains playable after stopping the server.
 
