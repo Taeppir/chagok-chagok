@@ -20,6 +20,7 @@ internal class DriveRecordingService : Service() {
     private val main = Handler(Looper.getMainLooper())
     private val samples = mutableListOf<Float>()
     private var speed: VehicleSpeed? = null
+    private var instruments: VehicleInstruments? = null
     private var latestKmh = 0f
     private var lastReadingMs = 0L
     private var recording = false
@@ -75,6 +76,7 @@ internal class DriveRecordingService : Service() {
             .build()
         startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
 
+        instruments = VehicleInstruments(this).also { it.connect() }
         samples.clear()
         latestKmh = 0f
         lastReadingMs = 0L
@@ -96,7 +98,11 @@ internal class DriveRecordingService : Service() {
 
     private fun finishRecording() {
         if (recording) {
-            val profile = DriveProfile.summarize(samples, strongChanges)
+            val profile = DriveProfile.summarize(samples, strongChanges)?.copy(
+                wipers = instruments?.wipers ?: 0, windows = instruments?.windows ?: 0,
+                signalStatus = instruments?.status.orEmpty(),
+                doors = instruments?.doors ?: 0, signals = instruments?.signals ?: 0,
+            )
             TripStore(this).profile = profile
             Log.i(TAG, "Drive saved: samples=${samples.size}, medianKmh=${profile?.medianKmh}, bpm=${profile?.tempo}, dynamic=${profile?.dynamic}")
             endRecording()
@@ -109,6 +115,8 @@ internal class DriveRecordingService : Service() {
     private fun endRecording() {
         main.removeCallbacks(tick)
         main.removeCallbacks(timeLimit)
+        instruments?.close()
+        instruments = null
         speed?.close()
         speed = null
         samples.clear()

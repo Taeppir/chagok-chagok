@@ -13,6 +13,9 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.widget.ProgressBar
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
@@ -36,6 +39,13 @@ class MainActivity : Activity() {
     private lateinit var weatherButton: Button
     private lateinit var genreLabel: TextView
     private lateinit var rhythmLabel: TextView
+    private lateinit var genreButton: Button
+    private lateinit var mixButton: Button
+    private lateinit var signalLabel: TextView
+    private var variation = 0
+    private var previewWipers = 0
+    private var previewWindows = 0
+    private var preview = false
     private lateinit var beatPattern: BeatPatternView
     private lateinit var driveStatus: TextView
     private lateinit var driveButton: Button
@@ -45,6 +55,27 @@ class MainActivity : Activity() {
     private lateinit var slowButton: Button
     private lateinit var fastButton: Button
     private lateinit var trackStatus: TextView
+    private lateinit var playProgress: ProgressBar
+    private lateinit var playTime: TextView
+    private val main = Handler(Looper.getMainLooper())
+    private val playbackTick = object : Runnable {
+        override fun run() {
+            val progress = track.progress
+            playProgress.progress = (progress * 1000).toInt()
+            val total = track.durationSeconds
+            val current = (progress * total).toInt()
+            val section = when {
+                progress < 0.125f -> "인트로"
+                progress < 0.5f -> "벌스"
+                progress < 0.875f -> "코러스"
+                else -> "아웃트로"
+            }
+            playTime.text = if (track.active) "%d:%02d / %d:%02d · %s".format(
+                current / 60, current % 60, total / 60, total % 60, section
+            ) else "16마디 · 인트로 / 벌스 / 코러스 / 아웃트로"
+            main.postDelayed(this, 1_500)
+        }
+    }
 
     private var speech: KoreanSpeech? = null
     private var selectedExample: Int? = null
@@ -59,6 +90,7 @@ class MainActivity : Activity() {
             status == DriveRecordingService.RecordingStatus.NotEnoughData
         ) {
             selectedExample = null
+            preview = false
             stopTrack()
         }
         updateDrive()
@@ -90,7 +122,7 @@ class MainActivity : Activity() {
                     .apply { marginStart = dp(12) })
         }
         content.addView(masthead)
-        content.addSpaced(rule(), 20, 2)
+
 
         val panels = LinearLayout(this).apply {
             orientation = if (compact) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
@@ -109,7 +141,7 @@ class MainActivity : Activity() {
         }
         content.addSpaced(panels, 36)
         setContentView(ScrollView(this).apply {
-            setBackgroundColor(BACKGROUND)
+            background = AuroraDrawable()
             isFillViewport = true
             addView(content)
         })
@@ -127,6 +159,8 @@ class MainActivity : Activity() {
     }
 
     private fun buildStoryPanel() = column().apply {
+        setPadding(dp(28), dp(28), dp(28), dp(28))
+        background = shape(0xCCFFFFFF.toInt(), 28)
         addView(heading(R.string.drive_heading, 32f))
         driveStatus = status(R.string.drive_idle)
         addSpaced(driveStatus, 8)
@@ -162,13 +196,28 @@ class MainActivity : Activity() {
         addSpaced(speechStatus, 4)
         weatherButton = action(R.string.weather_unknown, ButtonStyle.Plain, R.drawable.ic_track_weather) { chooseWeather() }
         addSpaced(weatherButton, 16)
+        addSpaced(heading(R.string.instrument_title, 25f), 20)
+        signalLabel = status(R.string.instrument_hint)
+        addSpaced(signalLabel, 12)
+        addSpaced(action(R.string.instrument_demo, ButtonStyle.Plain) { chooseInstruments() }, 8)
+        addSpaced(action(R.string.remix, ButtonStyle.Plain) {
+            stopTrack()
+            variation = (variation + 1) % 16
+            updateControls()
+        }, 8)
+
+
     }
 
     private fun buildMusicPanel(compact: Boolean) = column().apply {
+        setPadding(dp(28), dp(28), dp(28), dp(28))
+        background = shape(0xBFFFFFFF.toInt(), 28)
         addView(heading(R.string.track_heading, 32f))
         val sleeve = column().apply {
             setPadding(dp(28), dp(24), dp(28), dp(24))
-            background = shape(ACCENT, 16)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF96C6FF.toInt(), 0xFFCAB4FF.toInt(), 0xFFF5C5E7.toInt(), 0xFFA9EFE0.toInt())
+            ).apply { cornerRadius = dp(22).toFloat() }
             genreLabel = label(R.string.genre_acoustic, 25f, INK, bold = true)
             addView(genreLabel)
             tempo = label(R.string.track_tempo_placeholder, if (compact) 54f else 84f, INK, bold = true).apply {
@@ -187,6 +236,8 @@ class MainActivity : Activity() {
             addSpaced(rhythmLabel, 12)
         }
         addSpaced(sleeve, 16)
+        genreButton = action(R.string.choose_genre, ButtonStyle.Plain) { chooseGenre() }
+        addSpaced(genreButton, 12)
 
         playButton = action(R.string.track_play, ButtonStyle.Solid, R.drawable.ic_track_play) {
             if (track.active) stopTrack() else if (!restricted) {
@@ -198,7 +249,17 @@ class MainActivity : Activity() {
         addSpaced(playButton, 24)
         trackStatus = status(R.string.track_hint)
         addSpaced(trackStatus, 8)
-
+        playProgress = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 1000
+            progressTintList = ColorStateList.valueOf(Color.rgb(76, 66, 193))
+            progressBackgroundTintList = ColorStateList.valueOf(0x335B67B0)
+            contentDescription = "반주 재생 진행률"
+        }
+        addSpaced(playProgress, 12, 6)
+        playTime = status(R.string.track_hint)
+        addSpaced(playTime, 8)
+        mixButton = action(R.string.rap_mode, ButtonStyle.Plain) { chooseMix() }
+        addSpaced(mixButton, 12)
         addSpaced(heading(R.string.track_examples, 21f), 24)
         slowButton = action(R.string.track_example_slow, ButtonStyle.Outline) { selectExample(SLOW_EXAMPLE) }
         fastButton = action(R.string.track_example_fast, ButtonStyle.Outline) { selectExample(FAST_EXAMPLE) }
@@ -219,6 +280,7 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        main.post(playbackTick)
         DriveRecordingService.addListener(driveListener)
         watchingRestrictions = true
         car = Car.createCar(this, null, Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT) { connection, ready ->
@@ -242,6 +304,7 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        main.removeCallbacks(playbackTick)
         DriveRecordingService.removeListener(driveListener)
         watchingRestrictions = false
         restrictions?.unregisterListener()
@@ -339,11 +402,53 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    private fun choiceSheet(title: String, items: List<Pair<String, () -> Unit>>) {
+        if (restricted) return
+        val content = column().apply { setPadding(dp(24), dp(8), dp(24), dp(24)) }
+        val dialog = AlertDialog.Builder(this).setTitle(title)
+            .setView(ScrollView(this).apply { addView(content) }).create()
+        items.forEach { (name, choose) ->
+            content.addSpaced(action(R.string.choose_genre, ButtonStyle.Plain) {
+                if (!restricted) { stopTrack(); choose(); updateControls() }
+                dialog.dismiss()
+            }.apply { text = name }, 8)
+        }
+        content.addSpaced(action(android.R.string.cancel, ButtonStyle.Plain) { dialog.dismiss() }, 8)
+        dialog.show()
+    }
+
+    private fun chooseGenre() = choiceSheet("오늘의 장르",
+        listOf("자동 추천" to { trip.genre = null }) +
+            Genre.entries.map { genre -> getString(genre.label) to { trip.genre = genre } })
+
+    private fun chooseMix() = choiceSheet("믹스 설정", listOf(
+        "둥둥 베이스 · 킥과 저음 강조" to { trip.punchy = true },
+        "소프트 믹스 · 부드러운 저음" to { trip.punchy = false },
+        "랩 모드 · 멜로디를 비우고 비트에 집중" to { trip.rapMode = true },
+        "멜로디 모드 · 신스 훅 더하기" to { trip.rapMode = false },
+        "반복 재생 켜기" to { track.looping = true },
+        "반복 재생 끄기" to { track.looping = false },
+    ))
+
+    private fun chooseInstruments() = choiceSheet("악기 미리듣기 · 가상 신호", listOf(
+        "와이퍼 → 촘촘한 셰이커" to { preview = true; previewWipers = 4 },
+        "창문 → 벨과 공기감 있는 신스" to { preview = true; previewWindows = 4 },
+        "모든 악기" to { preview = true; previewWipers = 4; previewWindows = 4 },
+        "기본 비트" to { preview = true; previewWipers = 0; previewWindows = 0 },
+        "실제 주행 기록 사용" to { preview = false },
+    ))
+
     private fun currentArrangement(): Arrangement {
         val profile = trip.profile
         val bpm = selectedExample?.let { DriveProfile(it.toFloat(), 0).tempo }
             ?: profile?.tempo ?: DriveProfile.DEFAULT_TEMPO
         return Arrangement.recommend(bpm, trip.weather, story.text.toString(), selectedExample == null && profile?.dynamic == true)
+            .copy(genre = trip.genre ?: Arrangement.recommend(bpm, trip.weather, story.text.toString(), false).genre,
+                wipers = if (preview) previewWipers else profile?.wipers ?: 0,
+                windows = if (preview) previewWindows else profile?.windows ?: 0,
+                rapMode = trip.rapMode, variation = variation,
+                doors = if (preview) previewWindows else profile?.doors ?: 0,
+                signals = if (preview) previewWipers else profile?.signals ?: 0, punchy = trip.punchy)
     }
 
     private fun updateControls() {
@@ -362,9 +467,17 @@ class MainActivity : Activity() {
         slowButton.isSelected = selectedExample == SLOW_EXAMPLE
         fastButton.isSelected = selectedExample == FAST_EXAMPLE
         val arrangement = currentArrangement()
+        genreButton.text = "장르 · " + (trip.genre?.let { getString(it.label) } ?: "자동 추천")
+        mixButton.text = "믹스 · " + (if (trip.punchy) "둥둥 베이스 · " else "소프트 · ") + (if (trip.rapMode) "랩 모드" else "멜로디") + (if (track.looping) " · 반복" else "")
+        genreButton.isEnabled = !restricted
+        mixButton.isEnabled = !restricted
+        signalLabel.text = (if (preview) "악기 미리듣기" else "주행에서 모은 소리") +
+            " · 와이퍼 ${arrangement.wipers} · 창문 ${arrangement.windows} · 문 ${arrangement.doors} · 방향지시등 ${arrangement.signals}" +
+            (if (!preview && trip.profile?.signalStatus?.isNotEmpty() == true) "\n${trip.profile?.signalStatus}" else "") +
+            "\n편곡 ${variation + 1} · 와이퍼 → 셰이커 · 창문 → 벨 · 문 → 클랩 · 방향지시등 → 림샷"
         tempo.text = getString(R.string.track_tempo, arrangement.bpm)
-        beatPattern.setPattern(arrangement.syncopated)
-        genreLabel.text = getString(R.string.genre_value, getString(arrangement.genre.label))
+        beatPattern.setPattern(arrangement)
+        genreLabel.text = getString(arrangement.genre.label) + " · DRIVE MIX"
         rhythmLabel.text = getString(
             R.string.rhythm_value,
             getString(if (arrangement.syncopated) R.string.rhythm_dynamic else R.string.rhythm_steady),
@@ -449,7 +562,7 @@ class MainActivity : Activity() {
         val fill = when (style) {
             ButtonStyle.Outline -> SURFACE
             ButtonStyle.Plain -> Color.TRANSPARENT
-            ButtonStyle.Solid -> INK
+            ButtonStyle.Solid -> Color.rgb(76, 66, 193)
         }
         val foreground = if (style == ButtonStyle.Solid) Color.WHITE else INK
         val outline = if (style == ButtonStyle.Outline) CONTROL_BORDER else null
@@ -478,14 +591,14 @@ class MainActivity : Activity() {
     }
 
     private fun rule() = View(this).apply {
-        setBackgroundColor(RULE)
+        setBackgroundColor(Color.TRANSPARENT)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
 
     private fun shape(color: Int, radius: Int, stroke: Int? = null, strokeWidth: Int = 1) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = dp(radius).toFloat()
-        if (stroke != null) setStroke(dp(strokeWidth), stroke)
+
     }
 
     private fun LinearLayout.addSpaced(view: View, top: Int, heightDp: Int? = null) {
@@ -501,12 +614,12 @@ class MainActivity : Activity() {
         const val SPEED_PERMISSION_REQUEST = 1
         const val SLOW_EXAMPLE = 20
         const val FAST_EXAMPLE = 72
-        val BACKGROUND = Color.rgb(249, 248, 243)
-        val SURFACE = Color.WHITE
+        val BACKGROUND = Color.rgb(241, 245, 255)
+        val SURFACE = 0xDFFFFFFF.toInt()
         val RULE = Color.rgb(211, 212, 200)
         val CONTROL_BORDER = Color.rgb(121, 126, 111)
-        val INK = Color.rgb(24, 29, 19)
-        val MUTED = Color.rgb(76, 82, 69)
-        val ACCENT = Color.rgb(194, 249, 57)
+        val INK = Color.rgb(31, 35, 74)
+        val MUTED = Color.rgb(70, 77, 110)
+        val ACCENT = Color.rgb(196, 211, 255)
     }
 }

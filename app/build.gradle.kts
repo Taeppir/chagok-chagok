@@ -11,8 +11,8 @@ android {
         applicationId = "com.taeppir.chagokchagok"
         minSdk = 34
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     useLibrary("android.car")
@@ -28,5 +28,6 @@ kotlin {
 }
 
 dependencies {
+    implementation("ai.pleos.playground:Vehicle:2.3.2")
     implementation("ai.pleos.playground:SpeechToText:3.3.1")
 }

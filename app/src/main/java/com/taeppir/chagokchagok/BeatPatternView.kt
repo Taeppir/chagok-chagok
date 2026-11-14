@@ -10,8 +10,8 @@ internal class BeatPatternView(context: Context, color: Int) : View(context) {
     private val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
     private var kicks = DrumPattern.kickSteps(syncopated = false)
 
-    fun setPattern(syncopated: Boolean) {
-        val pattern = DrumPattern.kickSteps(syncopated)
+    fun setPattern(arrangement: Arrangement) {
+        val pattern = DrumPattern.kickSteps(arrangement)
         if (pattern == kicks) return
         kicks = pattern
         invalidate()

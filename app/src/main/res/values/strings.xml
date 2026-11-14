@@ -59,4 +59,18 @@
     <string name="rhythm_steady">고른 비트</string>
     <string name="rhythm_dynamic">엇박 비트</string>
     <string name="rhythm_value">%1$s · %2$s</string>
+    <string name="genre_pop">팝</string>
+    <string name="genre_reason_pop">탄력 있는 베이스 · 신스 코드 · 클랩</string>
+    <string name="genre_hiphop">힙합</string>
+    <string name="genre_reason_hiphop">묵직한 서브베이스 · 하프타임 · 하이햇 롤</string>
+    <string name="genre_house">하우스</string>
+    <string name="genre_reason_house">포 온 더 플로어 · 오프비트 베이스</string>
+    <string name="choose_genre">장르 선택</string>
+    <string name="auto_genre">이야기로 자동 추천</string>
+    <string name="remix">다른 편곡</string>
+    <string name="rap_mode">랩 모드</string>
+    <string name="loop_mode">반복 재생</string>
+    <string name="instrument_title">차 안의 악기들</string>
+    <string name="instrument_demo">악기 미리듣기</string>
+    <string name="instrument_hint">와이퍼는 셰이커, 창문 변화는 벨과 바람 신스로 더해져요.</string>
 </resources>
