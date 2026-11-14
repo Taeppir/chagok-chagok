@@ -11,8 +11,8 @@ android {
         applicationId = "com.taeppir.chagokchagok"
         minSdk = 34
         targetSdk = 34
-        versionCode = 5
-        versionName = "0.3.2"
+        versionCode = 6
+        versionName = "0.4.0"
     }
 
     useLibrary("android.car")

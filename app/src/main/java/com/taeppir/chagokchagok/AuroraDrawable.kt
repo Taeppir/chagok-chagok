@@ -12,7 +12,10 @@ internal class AuroraDrawable : Drawable() {
         val h = bounds.height().toFloat()
         if (w <= 0 || h <= 0) return
         paint.shader = RadialGradient(w * 0.8f, h * 0.35f, maxOf(w, h) * 0.65f,
-            intArrayOf(0x99DAE8FA.toInt(), 0x00EAF1FF), null, Shader.TileMode.CLAMP)
+            intArrayOf(0x66E5D5F6.toInt(), 0x00F5F3FA), null, Shader.TileMode.CLAMP)
+        canvas.drawRect(bounds, paint)
+        paint.shader = RadialGradient(w * 0.95f, h * 0.85f, w * 0.65f,
+            intArrayOf(0x559CE5D7, 0x00F5F3FA), null, Shader.TileMode.CLAMP)
         canvas.drawRect(bounds, paint)
         paint.shader = null
     }

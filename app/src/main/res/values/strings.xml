@@ -82,7 +82,13 @@
     <string name="back_to_player">플레이어로</string>
     <string name="edit_story">이야기 남기기</string>
     <string name="edit_sound">사운드 바꾸기</string>
-    <string name="vocal_pending">로컬 비트 미리듣기 · AI 보컬곡 연결 준비 중</string>
+    <string name="song_generate">여행을 노래로</string>
+    <string name="song_generating">노래 만드는 중…</string>
+    <string name="song_lyrics">가사 보기</string>
+    <string name="song_play">우리 노래 듣기</string>
+    <string name="song_local">로컬 비트로 전환</string>
+    <string name="song_switch">완성곡으로 전환</string>
+    <string name="song_idle">이야기를 가사와 보컬이 있는 노래로 만들어요.</string>
     <string name="screen_player">나의 사운드트랙</string>
     <string name="parked_status">주차 중</string>
     <string name="park_required">주차 후 이용</string>

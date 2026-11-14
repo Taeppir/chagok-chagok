@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
@@ -34,6 +33,14 @@ import android.widget.TextView
 class MainActivity : Activity() {
     private lateinit var trip: TripStore
     private lateinit var track: BackingTrack
+    private lateinit var songs: AiSongs
+    private lateinit var songPlayer: SongPlayer
+    private var usingSong = false
+    private lateinit var songStatus: TextView
+    private lateinit var generateButton: Button
+    private lateinit var lyricsButton: Button
+    private lateinit var localButton: Button
+    private lateinit var songHeading: TextView
     private lateinit var story: EditText
     private lateinit var speechStatus: TextView
     private lateinit var speechButton: Button
@@ -70,9 +77,9 @@ class MainActivity : Activity() {
     private val main = Handler(Looper.getMainLooper())
     private val playbackTick = object : Runnable {
         override fun run() {
-            val progress = track.progress
+            val progress = if (usingSong) songPlayer.progress else track.progress
             playProgress.progress = (progress * 1000).toInt()
-            val total = track.durationSeconds
+            val total = if (usingSong) songPlayer.durationSeconds else track.durationSeconds
             val current = (progress * total).toInt()
             val section = when {
                 progress < 0.125f -> "인트로"
@@ -80,9 +87,9 @@ class MainActivity : Activity() {
                 progress < 0.875f -> "코러스"
                 else -> "아웃트로"
             }
-            playTime.text = if (track.active) "%d:%02d / %d:%02d · %s".format(
-                current / 60, current % 60, total / 60, total % 60, section
-            ) else "16마디 · 준비 완료"
+            playTime.text = if (track.active || songPlayer.active) "%d:%02d / %d:%02d · %s".format(
+                current / 60, current % 60, total / 60, total % 60, if (usingSong) "우리 노래" else section
+            ) else if (usingSong) "AI 보컬곡 · 재생 준비" else "16마디 · 준비 완료"
             main.postDelayed(this, 1_500)
         }
     }
@@ -113,6 +120,15 @@ class MainActivity : Activity() {
             trackStatus.setText(status)
             updateControls()
         }
+        songPlayer = SongPlayer(this) { status ->
+            trackStatus.text = status
+            updateControls()
+        }
+        songs = AiSongs(this) {
+            if (songs.file != null && !track.active) usingSong = true
+            updateControls()
+        }
+        usingSong = songs.file != null
         selectedExample = savedInstanceState?.getInt("example")?.takeIf { it > 0 }
 
         val compact = resources.configuration.screenWidthDp < 1100 || resources.configuration.fontScale > 1.4f
@@ -161,7 +177,7 @@ class MainActivity : Activity() {
                 addView(ImageView(this@MainActivity).apply {
                     setImageResource(R.drawable.ic_chagok_mark)
                     importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                },LinearLayout.LayoutParams(dp(60),dp(60)))
+                },LinearLayout.LayoutParams(dp(128),dp(76)))
                 addSpaced(heading(R.string.app_name,27f).apply { gravity=Gravity.CENTER },14)
                 navigationButtons.forEachIndexed { i,button ->
                     button.gravity=Gravity.CENTER
@@ -270,10 +286,11 @@ class MainActivity : Activity() {
             setPadding(dp(if(compact) 24 else 48),dp(32),dp(if(compact) 24 else 32),dp(32))
             background=GlassDrawable(dp(32).toFloat())
         }
-        audioPulse=AudioPulseView(this@MainActivity,track).apply { importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+        audioPulse=AudioPulseView(this@MainActivity, { track.active || songPlayer.active }, { if (usingSong) songPlayer.visualLevels() else track.visualLevels() }).apply { importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO }
         val controls=column().apply {
             addView(label(R.string.family_soundtrack,18f,MUTED,true).apply { letterSpacing=0.12f })
-            addSpaced(heading(R.string.track_heading,64f),24)
+            songHeading = heading(R.string.track_heading,72f)
+            addSpaced(songHeading,24)
             storyPreview=label(R.string.story_preview_empty,26f,INK).apply { maxLines=2; ellipsize=android.text.TextUtils.TruncateAt.END }
             addSpaced(storyPreview,20)
             genreLabel=label(R.string.genre_pop,22f,INK,true)
@@ -287,7 +304,7 @@ class MainActivity : Activity() {
             addSpaced(rhythmLabel,8)
             playProgress=ProgressBar(this@MainActivity,null,android.R.attr.progressBarStyleHorizontal).apply {
                 max=1000
-                progressTintList=ColorStateList.valueOf(CockpitTheme.BLUE)
+                progressTintList=ColorStateList.valueOf(CockpitTheme.PRIMARY)
                 progressBackgroundTintList=ColorStateList.valueOf(0xFFDCE4F0.toInt())
                 contentDescription="믹스 재생 진행률"
             }
@@ -295,14 +312,16 @@ class MainActivity : Activity() {
             playTime=status(R.string.track_hint)
             addSpaced(playTime,12)
             playButton=action(R.string.track_play,ButtonStyle.Solid,R.drawable.ic_track_play) {
-                if(track.active) stopTrack() else if(!restricted) {
+                if(track.active || songPlayer.active) stopTrack() else if(!restricted) {
                     if(speech!=null) finishSpeech(R.string.speech_stopped)
-                    track.play(currentArrangement())
+                    val file = songs.file
+                    if (usingSong && file != null) songPlayer.play(file) else track.play(currentArrangement())
                 }
                 updateControls()
             }
             repeatButton=action(R.string.loop_mode,ButtonStyle.Plain,R.drawable.ic_repeat) {
                 track.looping=!track.looping
+                songPlayer.looping=track.looping
                 updateControls()
             }.apply {
                 text=""
@@ -337,7 +356,20 @@ class MainActivity : Activity() {
             if(compact) addSpaced(edit,16) else addView(edit,LinearLayout.LayoutParams(dp(300),ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         addSpaced(footer,24)
-        addSpaced(status(R.string.vocal_pending),20)
+        generateButton = action(R.string.song_generate, ButtonStyle.Plain, R.drawable.ic_music) { confirmSong() }
+        lyricsButton = action(R.string.song_lyrics, ButtonStyle.Plain, R.drawable.ic_mixer) { showLyrics() }
+        localButton = action(R.string.song_local, ButtonStyle.Plain, R.drawable.ic_track_play) {
+            stopTrack()
+            usingSong = !usingSong && songs.file != null
+            updateControls()
+        }
+        addSpaced(buttonRow(listOf(generateButton, lyricsButton, localButton)),20)
+        songStatus = status(R.string.song_idle)
+        songStatus.setOnClickListener { songs.refresh() }
+        songStatus.contentDescription = "노래 생성 상태. 눌러서 새로고침"
+        songStatus.minHeight = dp(76)
+        songStatus.gravity = Gravity.CENTER_VERTICAL
+        addSpaced(songStatus,8)
     }
 
     private fun buildSoundPanel() = column().apply {
@@ -378,6 +410,7 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         main.post(playbackTick)
+        songs.refresh()
         DriveRecordingService.addListener(driveListener)
         watchingRestrictions = true
         car = Car.createCar(this, null, Car.CAR_WAIT_TIMEOUT_DO_NOT_WAIT) { connection, ready ->
@@ -410,6 +443,12 @@ class MainActivity : Activity() {
         car = null
         updateRestrictions(true)
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        songs.close()
+        songPlayer.stop()
+        super.onDestroy()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -524,8 +563,8 @@ class MainActivity : Activity() {
         "소프트 믹스 · 부드러운 저음" to { trip.punchy = false },
         "랩 모드 · 멜로디를 비우고 비트에 집중" to { trip.rapMode = true },
         "멜로디 모드 · 신스 훅 더하기" to { trip.rapMode = false },
-        "반복 재생 켜기" to { track.looping = true },
-        "반복 재생 끄기" to { track.looping = false },
+        "반복 재생 켜기" to { track.looping = true; songPlayer.looping = true },
+        "반복 재생 끄기" to { track.looping = false; songPlayer.looping = false },
     ))
 
     private fun showInstrumentDetails() {
@@ -611,14 +650,71 @@ class MainActivity : Activity() {
         tempoSource.text = selectedExample?.let { getString(R.string.track_example_source, it) }
             ?: trip.profile?.let { getString(R.string.track_drive_source, it.medianKmh) }
             ?: getString(R.string.track_default)
-        playButton.setText(if (track.active) R.string.track_stop else R.string.track_play)
-        playButton.setIcon(if (track.active) R.drawable.ic_track_stop else R.drawable.ic_track_play)
+        val playing = track.active || songPlayer.active
+        playButton.setText(if (playing) R.string.track_stop else if (usingSong) R.string.song_play else R.string.track_play)
+        playButton.setIcon(if (playing) R.drawable.ic_track_stop else R.drawable.ic_track_play)
+        generateButton.isEnabled = !restricted && !activeRecording && !songs.pending
+        generateButton.setText(if (songs.pending) R.string.song_generating else R.string.song_generate)
+        lyricsButton.isEnabled = !restricted && songs.song != null
+        localButton.isEnabled = !restricted && songs.file != null
+        localButton.setText(if (usingSong) R.string.song_local else R.string.song_switch)
+        songStatus.text = songs.message
+        if (usingSong) {
+            storyPreview.text = songs.song?.optString("story")?.takeIf { it.isNotBlank() }
+                ?: getString(R.string.story_preview_empty)
+            tempo.text = "AI VOCAL"
+            genreLabel.text = Genre.entries.firstOrNull { it.name == songs.song?.optString("genre") }?.let { getString(it.label) } ?: "우리 노래"
+            rhythmLabel.text = "가족의 이야기 · 한국어 보컬"
+            tempoSource.text = "기기에 저장된 완성곡 · Lyria 3.5"
+        }
     }
 
     private fun stopTrack() {
-        if (!track.active) return
         track.stop()
+        songPlayer.stop()
         trackStatus.setText(R.string.track_hint)
+    }
+
+    private fun confirmSong() {
+        if (restricted || songs.pending) return
+        val memory = story.text.toString().trim()
+        if (memory.length !in 3..2000) {
+            selectPage(1)
+            story.error = "여행 이야기를 3~2,000자로 남겨 주세요."
+            story.requestFocus()
+            return
+        }
+        val arrangement = currentArrangement()
+        val request = org.json.JSONObject().put("story", memory)
+            .put("genre", arrangement.genre.name).put("weather", trip.weather.name)
+            .put("bpm", arrangement.bpm).put("wipers", arrangement.wipers)
+            .put("windows", arrangement.windows).put("doors", arrangement.doors)
+            .put("signals", arrangement.signals).put("rapMode", arrangement.rapMode)
+            .put("punchy", arrangement.punchy).put("syncopated", arrangement.syncopated)
+        AlertDialog.Builder(this).setTitle("우리 여행을 노래로")
+            .setMessage("${memory.take(200)}\n\n${getString(arrangement.genre.label)} · 한국어 가사와 보컬\n\n이야기·날씨·주행 요약을 Google에 보내요. 새 곡 생성은 $0.08이며 세금·환율에 따라 달라집니다. 같은 내용으로 만든 곡은 다시 불러와요.")
+            .setPositiveButton("노래 만들기") { _, _ ->
+                if (!restricted) {
+                    stopTrack()
+                    if (speech != null) finishSpeech(R.string.speech_stopped)
+                    songs.create(request)
+                }
+            }.setNegativeButton("취소", null).show()
+    }
+
+    private fun showLyrics() {
+        if (restricted) return
+        val words = songs.song?.optString("lyrics").orEmpty().lines()
+            .filterNot { it.trim().startsWith("[[") && it.trim().endsWith("]]") }
+            .joinToString("\n") { it.removePrefix("[:]").trim() }
+            .trim().ifBlank { "이 곡에 함께 제공된 가사가 없어요." }
+        val content = label(R.string.song_lyrics, 26f, INK).apply {
+            text = words
+            setPadding(dp(32), dp(24), dp(32), dp(32))
+            setTextIsSelectable(true)
+        }
+        AlertDialog.Builder(this).setTitle("우리 노래의 가사")
+            .setView(ScrollView(this).apply { addView(content) }).setPositiveButton("닫기", null).show()
     }
 
     private fun toggleSpeech() {
@@ -656,7 +752,11 @@ class MainActivity : Activity() {
 
     private fun heading(id: Int, size: Float) = label(id, size, INK, bold = true).apply {
         isAccessibilityHeading = true
-        letterSpacing = -0.025f
+        if (id == R.string.track_heading || id == R.string.app_name) {
+            typeface = resources.getFont(R.font.jua_regular)
+            fontVariationSettings = null
+            letterSpacing = 0.01f
+        } else letterSpacing = -0.025f
     }
 
     private fun status(id: Int) = label(id, 19f, MUTED).apply {
@@ -692,13 +792,13 @@ class MainActivity : Activity() {
             ButtonStyle.Outline -> SURFACE
             ButtonStyle.Plain -> CockpitTheme.SOFT
             ButtonStyle.Navigation -> Color.TRANSPARENT
-            ButtonStyle.Drive -> CockpitTheme.BLUE
-            ButtonStyle.Solid -> CockpitTheme.BLUE
+            ButtonStyle.Drive -> CockpitTheme.PRIMARY
+            ButtonStyle.Solid -> CockpitTheme.PRIMARY
         }
         val foreground = if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) Color.WHITE else INK
         val inkStates = ColorStateList(
             arrayOf(disabled, focused, selected, intArrayOf()),
-            intArrayOf(MUTED, Color.WHITE, CockpitTheme.BLUE, foreground),
+            intArrayOf(MUTED, Color.WHITE, CockpitTheme.PRIMARY, foreground),
         )
         setTextColor(inkStates)
         compoundDrawableTintList = inkStates
@@ -706,9 +806,11 @@ class MainActivity : Activity() {
         icon?.let { setIcon(it) }
         val states = StateListDrawable().apply {
             addState(disabled, shape(BACKGROUND, 20))
-            addState(focused, shape(CockpitTheme.BLUE, 20))
+            addState(focused, shape(CockpitTheme.PRIMARY, 20))
             addState(selected, shape(ACCENT, 20))
-            addState(intArrayOf(), shape(fill, 20))
+            addState(intArrayOf(), if (style == ButtonStyle.Solid || style == ButtonStyle.Drive)
+                GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(CockpitTheme.PRIMARY, 0xFF7050C3.toInt())).apply { cornerRadius = dp(20).toFloat() }
+                else shape(fill, 20))
         }
         background = RippleDrawable(ColorStateList.valueOf(0x224875E0), states, shape(Color.WHITE, 20))
         setOnClickListener { click() }

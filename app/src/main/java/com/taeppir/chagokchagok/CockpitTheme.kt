@@ -1,11 +1,11 @@
 package com.taeppir.chagokchagok
 
 internal object CockpitTheme {
-    const val INK = 0xFF172331.toInt()
+    const val INK = 0xFF17273C.toInt()
     const val MUTED = 0xFF526174.toInt()
-    const val BLUE = 0xFF245BD5.toInt()
-    const val BACKGROUND = 0xFFF2F5FA.toInt()
+    const val PRIMARY = 0xFF245BD5.toInt()
+    const val BACKGROUND = 0xFFF4F7FB.toInt()
     const val SURFACE = 0xFFFFFFFF.toInt()
-    const val SOFT = 0xFFE6EDF7.toInt()
-    const val SELECTED = 0xFFDCE8FF.toInt()
+    const val SOFT = 0xFFE9EFF8.toInt()
+    const val SELECTED = 0xFFE2ECFF.toInt()
 }

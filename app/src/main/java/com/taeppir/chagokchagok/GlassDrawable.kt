@@ -9,7 +9,7 @@ internal class GlassDrawable(private val radius: Float) : Drawable() {
     override fun draw(canvas: Canvas) {
         val rect = RectF(bounds)
         paint.shader = LinearGradient(0f, 0f, rect.width(), rect.height(),
-            intArrayOf(0xF5FFFFFF.toInt(), 0xD9F7FAFF.toInt()), null, Shader.TileMode.CLAMP)
+            intArrayOf(0xF5FFFFFF.toInt(), 0xD9FCF8FF.toInt()), null, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(rect, radius, radius, paint)
         paint.shader = null
     }

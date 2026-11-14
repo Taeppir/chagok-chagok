@@ -1,7 +1,4 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
- android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
-<path android:fillColor="#245BD5" android:pathData="M17,2 H47 Q62,2 62,17 V47 Q62,62 47,62 H17 Q2,62 2,47 V17 Q2,2 17,2 Z" />
-<path android:fillColor="#FFFFFF" android:pathData="M15,18 Q32,6 49,18 L49,26 Q32,14 15,26 Z" />
-<path android:fillColor="#D9E7FF" android:pathData="M15,31 Q32,19 49,31 L49,39 Q32,27 15,39 Z" />
-<path android:fillColor="#B5D7F7" android:pathData="M15,44 Q32,32 49,44 L49,52 Q32,40 15,52 Z" />
-</vector>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_chagok_background" />
+    <foreground android:drawable="@drawable/ic_chagok_foreground" />
+</adaptive-icon>
