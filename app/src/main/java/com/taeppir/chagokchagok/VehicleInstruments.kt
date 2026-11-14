@@ -9,6 +9,9 @@ import ai.pleos.playground.vehicle.api.model.area.DoorArea
 import ai.pleos.playground.vehicle.constant.area.TurnSignalValue
 import ai.pleos.playground.vehicle.listener.TurnSignalStateListener
 import ai.pleos.playground.vehicle.listener.DoorPositionListener
+import ai.pleos.playground.vehicle.api.model.area.SeatArea
+import ai.pleos.playground.vehicle.listener.HvacTemperatureListener
+import ai.pleos.playground.vehicle.listener.HvacRecirculationStateListener
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -29,8 +32,12 @@ internal class VehicleInstruments(context: Context) {
         private set
     var signals = 0
         private set
+    var temperatureChanges = 0
+        private set
+    var recirculationChanges = 0
+        private set
     val status: String
-        get() = listOf("와이퍼", "창문", "문", "방향지시등").joinToString(" · ") {
+        get() = listOf("와이퍼", "창문", "문", "방향지시등", "설정 온도", "내기 순환").joinToString(" · ") {
             "$it " + when (it) {
                 in failed -> "연결 불가"
                 in connected -> "연결됨"
@@ -42,6 +49,12 @@ internal class VehicleInstruments(context: Context) {
         try {
             vehicle.initialize()
             subscribeSignals()
+            vehicle.getHVAC().checkHvacTemperatureCapabilities(
+                onComplete = { _, areas -> main.post { if (!closed) areas.keys.forEach(::subscribeTemperature) } },
+                onFailed = { error("설정 온도", it) })
+            vehicle.getHVAC().checkHvacRecirculationCapabilities(
+                onComplete = { _, areas -> main.post { if (!closed) areas.forEach(::subscribeRecirculation) } },
+                onFailed = { error("내기 순환", it) })
             vehicle.getDoor().checkDoorPositionCapabilities(
                 onComplete = { _, areas -> main.post { if (!closed) areas.keys.forEach(::subscribeDoor) } },
                 onFailed = { error("문", it) },
@@ -66,6 +79,40 @@ internal class VehicleInstruments(context: Context) {
             error("와이퍼", e)
             error("창문", e)
         }
+    }
+
+    private fun subscribeTemperature(area: SeatArea) {
+        var previous: Float? = null
+        val listener=object : HvacTemperatureListener {
+            override fun onHvacTemperatureUpdated(value: Float?) { main.post {
+                if(!closed && value!=null) {
+                    connected.add("설정 온도"); failed.remove("설정 온도")
+                    if(previous!=null && previous!=value) temperatureChanges=(temperatureChanges+1).coerceAtMost(64)
+                    previous=value
+                }
+            } }
+            override fun onFailed(e: Exception) { error("설정 온도",e) }
+        }
+        try { vehicle.getHVAC().registerHvacTemperature(area,listener)
+            cleanup.add { vehicle.getHVAC().unregisterHvacTemperature(area,listener) }
+        } catch(e:Exception) {error("설정 온도",e)}
+    }
+
+    private fun subscribeRecirculation(area: SeatArea) {
+        var previous: Boolean? = null
+        val listener=object : HvacRecirculationStateListener {
+            override fun onHvacAutoRecirculationStateUpdated(value: Boolean?) { main.post {
+                if(!closed && value!=null) {
+                    connected.add("내기 순환"); failed.remove("내기 순환")
+                    if(previous!=null && previous!=value) recirculationChanges=(recirculationChanges+1).coerceAtMost(64)
+                    previous=value
+                }
+            } }
+            override fun onFailed(e:Exception) {error("내기 순환",e)}
+        }
+        try { vehicle.getHVAC().registerHvacRecirculationState(area,listener)
+            cleanup.add {vehicle.getHVAC().unregisterHvacRecirculationState(area,listener)}
+        } catch(e:Exception) {error("내기 순환",e)}
     }
 
     private fun subscribeWiper(area: WindowArea) {

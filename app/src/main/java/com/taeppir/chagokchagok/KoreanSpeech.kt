@@ -15,6 +15,7 @@ internal class KoreanSpeech(
     private val context: Context,
     private val onListening: () -> Unit,
     private val onResult: (String) -> Unit,
+    private val onPartial: (String) -> Unit,
     private val onFinished: (Int) -> Unit,
     private val onError: (String) -> Unit,
 ) {
@@ -36,7 +37,7 @@ internal class KoreanSpeech(
             if (completed && stt.isNotBlank()) dispatch {
                 Log.i(TAG, "Final Korean transcript received")
                 onResult(stt)
-            }
+            } else if (stt.isNotBlank()) dispatch { onPartial(stt) }
         }
         override fun onUpdatedEpdData(on: Long, off: Long) = Unit
         override fun onUpdatedRms(rms: Double) = Unit

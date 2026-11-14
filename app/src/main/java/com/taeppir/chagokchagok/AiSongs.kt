@@ -10,7 +10,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 
 /** Connects only to the loopback bridge. Google credentials never enter the APK. */
-internal class AiSongs(context: Context, private val changed: () -> Unit) {
+internal class AiSongs(private val context: Context, private val changed: () -> Unit) {
     private val directory = File(context.filesDir, "songs").apply { mkdirs() }
     private val metadata = File(directory, "current.json")
     private val worker = Executors.newSingleThreadExecutor()
@@ -50,6 +50,31 @@ internal class AiSongs(context: Context, private val changed: () -> Unit) {
         } finally { request.disconnect() }
     }
 
+    fun library(): List<JSONObject> {
+        val demos=context.assets.list("demo-songs").orEmpty().filter {it.endsWith(".json")}.mapNotNull {name ->
+            runCatching {JSONObject(context.assets.open("demo-songs/$name").bufferedReader().use {it.readText()})}.getOrNull()
+        }
+        val saved=directory.listFiles().orEmpty().filter {it.extension=="json"}.mapNotNull {runCatching {JSONObject(it.readText())}.getOrNull()}
+        val currentDemoIds=demos.map {it.optString("id")}.toSet()
+        return (saved.filter { !it.optBoolean("demo") || it.optString("id") in currentDemoIds }+demos).distinctBy {it.optString("id")}.filter {it.optString("status")=="ready"}
+    }
+
+    fun select(item: JSONObject) {
+        if(working || pending) return
+        working=true
+        worker.execute {
+            try {
+                val id=item.getString("id");require(id.matches(Regex("[a-f0-9]{32}")))
+                val target=File(directory,"$id.mp3")
+                if(!target.exists() && item.optBoolean("demo")) context.assets.open("demo-songs/$id.mp3").use {input ->target.outputStream().use {input.copyTo(it)}}
+                check(target.isFile)
+                song?.let {File(directory,it.getString("id")+".json").writeText(it.toString())}
+                metadata.writeText(item.toString())
+                main.post {if(!closed) {working=false;song=item;message="저장된 음악을 불러왔어요";changed()}}
+            } catch(_:Exception) {main.post {working=false;message="음악을 불러오지 못했어요";changed()}}
+        }
+    }
+
     fun refresh() = execute(null)
     fun create(body: JSONObject) = execute(body)
 
@@ -84,6 +109,7 @@ internal class AiSongs(context: Context, private val changed: () -> Unit) {
                             check(temp.renameTo(audio))
                         } finally { request.disconnect(); temp.delete() }
                     }
+                    File(directory,job.getString("id")+".json").writeText(job.toString())
                     val temp = File(directory, "current.tmp")
                     temp.writeText(job.toString())
                     check(temp.renameTo(metadata))

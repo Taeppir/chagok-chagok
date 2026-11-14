@@ -1,4 +1,5 @@
 <resources>
+    <string name="nav_home">주행</string>
     <string name="app_name">차곡차곡</string>
     <string name="speed_disconnected">차량 서비스 연결 대기 중</string>
     <string name="speed_unavailable">차량 속도를 읽을 수 없습니다.</string>
@@ -14,13 +15,13 @@
     <string name="speech_timeout">음성 인식 시간이 초과되었습니다.</string>
     <string name="speech_error">음성 인식 오류 (%1$s)</string>
     <string name="story_heading">기억할 한마디</string>
-    <string name="story_hint">어떤 순간을 기억할까요?</string>
+    <string name="story_hint">누구와 어디로 갔나요? 기억에 남는 말이나 장면을 적어 주세요.</string>
     <string name="drive_heading">주행 기록</string>
-    <string name="drive_idle">출발 전 시작 · 도착 후 완료</string>
+    <string name="drive_idle">출발 전 시작 · 주차 후 완료 · 최대 30분</string>
     <string name="drive_start">주행 시작</string>
     <string name="drive_stop">기록 마치기</string>
     <string name="drive_recording">주행 속도 기록 중</string>
-    <string name="drive_recording_hint">기록 중 · 주차 후 마쳐 주세요</string>
+    <string name="drive_recording_hint">차량 신호 기록 중 · 최대 30분 뒤 자동 저장</string>
     <string name="drive_empty">유효한 속도 기록이 부족해 기본 믹스를 사용해요.</string>
     <string name="drive_failed">주행 기록을 시작하지 못했어요. 다시 시도해 주세요.</string>
     <string name="drive_summary">주행 저장됨 · %1$.1f km/h</string>
@@ -74,15 +75,15 @@
     <string name="instrument_demo">악기 미리듣기</string>
     <string name="instrument_hint">와이퍼는 셰이커, 창문 변화는 벨과 바람 신스로 더해져요.</string>
     <string name="nav_player">플레이어</string>
-    <string name="nav_story">여행 이야기</string>
-    <string name="nav_sound">사운드</string>
-    <string name="family_soundtrack">FAMILY SOUNDTRACK</string>
+    <string name="nav_story">이야기</string>
+    <string name="nav_sound">주행 리포트</string>
+    <string name="family_soundtrack">TRIP SOUNDTRACK</string>
     <string name="story_preview_empty">함께한 순간, 오래 듣고 싶은 이야기.</string>
     <string name="sound_heading">우리 여행의 소리</string>
     <string name="back_to_player">플레이어로</string>
     <string name="edit_story">이야기 남기기</string>
     <string name="edit_sound">사운드 바꾸기</string>
-    <string name="song_generate">여행을 노래로</string>
+    <string name="song_generate">음악 만들기</string>
     <string name="song_generating">노래 만드는 중…</string>
     <string name="song_lyrics">가사 보기</string>
     <string name="song_play">우리 노래 듣기</string>
@@ -93,4 +94,5 @@
     <string name="parked_status">주차 중</string>
     <string name="park_required">주차 후 이용</string>
     <string name="brand_tagline">여행을 담다.\n음악이 되다.</string>
+    <string name="speech_story_full">이야기는 2,000자까지 담을 수 있어요. 기존 내용을 정리한 뒤 다시 추가해 주세요.</string>
 </resources>

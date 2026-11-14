@@ -24,6 +24,8 @@ internal class DriveRecordingService : Service() {
     private var latestKmh = 0f
     private var lastReadingMs = 0L
     private var recording = false
+    private var processing = false
+    private var conversation: TripConversation? = null
     private var previousKmh: Float? = null
     private var strongChanges = 0
 
@@ -47,7 +49,7 @@ internal class DriveRecordingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             STOP -> finishRecording()
-            START -> if (!recording) beginRecording()
+            START -> if (!recording && !processing) beginRecording()
             else -> stopSelf()
         }
         return START_NOT_STICKY
@@ -74,7 +76,7 @@ internal class DriveRecordingService : Service() {
             .setOngoing(true)
             .addAction(Notification.Action.Builder(null, getString(R.string.drive_stop), stop).build())
             .build()
-        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or (if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED && TripStore(this).recordConversation) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0))
 
         instruments = VehicleInstruments(this).also { it.connect() }
         samples.clear()
@@ -83,6 +85,11 @@ internal class DriveRecordingService : Service() {
         previousKmh = null
         strongChanges = 0
         recording = true
+        TripStore(this).apply {startedAt=System.currentTimeMillis();hasResult=false}
+        if (TripStore(this).recordConversation && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            TripStore(this).transcript = ""
+            conversation = TripConversation(this).also { it.start() }
+        }
         publish(RecordingStatus.Recording)
         speed = VehicleSpeed(
             context = this,
@@ -98,18 +105,26 @@ internal class DriveRecordingService : Service() {
 
     private fun finishRecording() {
         if (recording) {
-            val profile = DriveProfile.summarize(samples, strongChanges)?.copy(
+            val profile = (DriveProfile.summarize(samples, strongChanges) ?: DriveProfile(0f,samples.size)).copy(
                 wipers = instruments?.wipers ?: 0, windows = instruments?.windows ?: 0,
                 signalStatus = instruments?.status.orEmpty(),
                 doors = instruments?.doors ?: 0, signals = instruments?.signals ?: 0,
+                temperatureChanges=instruments?.temperatureChanges ?: 0, recirculationChanges=instruments?.recirculationChanges ?: 0,
             )
-            TripStore(this).profile = profile
+            TripStore(this).apply {this.profile = profile;durationSeconds=((System.currentTimeMillis()-startedAt)/1000).toInt();hasResult=true}
             Log.i(TAG, "Drive saved: samples=${samples.size}, medianKmh=${profile?.medianKmh}, bpm=${profile?.tempo}, dynamic=${profile?.dynamic}")
             endRecording()
-            publish(if (profile != null) RecordingStatus.Saved else RecordingStatus.NotEnoughData)
-            stopForeground(STOP_FOREGROUND_REMOVE)
+            processing = true
+            publish(RecordingStatus.Processing)
+            val completed = {
+                processing = false
+                publish(if (profile.sampleCount>=DriveProfile.MIN_SAMPLES) RecordingStatus.Saved else RecordingStatus.NotEnoughData)
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+            conversation?.finish(completed) ?: completed()
         }
-        stopSelf()
+        if (!processing) stopSelf()
     }
 
     private fun endRecording() {
@@ -128,10 +143,11 @@ internal class DriveRecordingService : Service() {
             endRecording()
             publish(RecordingStatus.Idle)
         }
+        conversation?.close()
         super.onDestroy()
     }
 
-    internal enum class RecordingStatus { Idle, Recording, Saved, NotEnoughData }
+    internal enum class RecordingStatus { Idle, Recording, Processing, Saved, NotEnoughData }
 
     companion object {
         const val START = "com.taeppir.chagokchagok.START_DRIVE"
@@ -139,7 +155,7 @@ internal class DriveRecordingService : Service() {
         private const val TAG = "ChagokDrive"
         private const val CHANNEL = "drive_recording"
         private const val NOTIFICATION_ID = 1
-        private const val MAX_RECORDING_MS = 15 * 60 * 1_000L
+        private const val MAX_RECORDING_MS = 30 * 60 * 1_000L
 
         var status = RecordingStatus.Idle
             private set

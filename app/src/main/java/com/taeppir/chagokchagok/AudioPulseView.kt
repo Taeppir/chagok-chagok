@@ -16,7 +16,7 @@ internal class AudioPulseView(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val levels = FloatArray(48)
     private var artwork: Bitmap? = null
-    private val innerBevel = ring(89f, 80f)
+    private val innerBevel = ring(37f, 29f)
     private val bevelShader = LinearGradient(-90f, -90f, 90f, 90f,
         0xFF94A8C9.toInt(), 0xDFFFFFFF.toInt(), Shader.TileMode.CLAMP)
     private val face = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).also { drawFace(Canvas(it)) }
@@ -39,7 +39,7 @@ internal class AudioPulseView(
 
     private fun drawFace(canvas: Canvas) {
         canvas.translate(256f, 256f)
-        val shape = ring(226f, 80f)
+        val shape = ring(226f, 29f)
         paint.shader = SweepGradient(0f, 0f, intArrayOf(
             0xFFB7C3F3.toInt(), 0xFFEBC2E2.toInt(), 0xFFB3A4ED.toInt(),
             0xFF7FB6EC.toInt(), 0xFF94E3D5.toInt(), 0xFFDDEEAC.toInt(), 0xFFB7C3F3.toInt()), null)
@@ -53,6 +53,9 @@ internal class AudioPulseView(
         paint.shader = RadialGradient(-100f, -140f, 200f, 0xA0FFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP)
         canvas.drawCircle(-100f, -140f, 200f, paint)
         canvas.restoreToCount(reflection)
+        paint.shader = LinearGradient(-64f, -64f, 64f, 64f,
+            intArrayOf(0xCCF8FCFF.toInt(), 0xBBACBBD9.toInt(), 0xDDEAF3F6.toInt()), null, Shader.TileMode.CLAMP)
+        canvas.drawPath(ring(58f, 29f), paint)
         paint.shader = null
     }
 
@@ -68,10 +71,10 @@ internal class AudioPulseView(
         canvas.drawCircle(0f, 0f, 270f, paint)
         canvas.restoreToCount(shadow)
         canvas.rotate(-18f)
-        canvas.scale(1f, 0.86f)
+        canvas.scale(1f, 0.96f)
         paint.shader = LinearGradient(-210f, -160f, 210f, 200f,
             intArrayOf(0xFF5B91D1.toInt(), 0xFF89BCDB.toInt(), 0xFF8B74B9.toInt()), null, Shader.TileMode.CLAMP)
-        canvas.drawPath(ring(226f, 80f, 12f), paint)
+        canvas.drawPath(ring(226f, 29f, 5f), paint)
         paint.shader = null
         canvas.restoreToCount(save)
     }
@@ -94,7 +97,7 @@ internal class AudioPulseView(
         canvas.translate(width / 2f, height * 0.40f)
         canvas.scale(scale, scale)
         canvas.rotate(-18f)
-        canvas.scale(1f, 0.86f)
+        canvas.scale(1f, 0.96f)
         val rotation = canvas.save()
         canvas.rotate(angle)
         canvas.drawBitmap(face, -256f, -256f, paint)
@@ -106,7 +109,7 @@ internal class AudioPulseView(
         canvas.restoreToCount(save)
         val step = width * 0.76f / levels.size
         val baseline = height * 0.88f
-        for (i in levels.indices) {
+        if (playing) for (i in levels.indices) {
             val x = width * 0.12f + i * step
             val bar = height * (0.006f + levels[i] * 0.105f)
             paint.color = when {

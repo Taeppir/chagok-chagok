@@ -19,7 +19,7 @@ internal enum class Genre(val label: Int, val reason: Int) {
     Acoustic(R.string.genre_acoustic, R.string.genre_reason_acoustic),
 }
 
-internal data class Arrangement(val bpm: Int, val genre: Genre, val syncopated: Boolean, val wipers: Int = 0, val windows: Int = 0, val rapMode: Boolean = false, val variation: Int = 0, val doors: Int = 0, val signals: Int = 0, val punchy: Boolean = true) {
+internal data class Arrangement(val bpm: Int, val genre: Genre, val syncopated: Boolean, val wipers: Int = 0, val windows: Int = 0, val rapMode: Boolean = false, val variation: Int = 0, val doors: Int = 0, val signals: Int = 0, val punchy: Boolean = true, val temperatureChanges: Int = 0, val recirculationChanges: Int = 0) {
     companion object {
         fun recommend(tempo: Int, weather: Weather, story: String, dynamic: Boolean): Arrangement {
             val text = story.lowercase(Locale.ROOT)
