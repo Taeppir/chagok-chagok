@@ -34,3 +34,13 @@ internal data class Arrangement(val bpm: Int, val genre: Genre, val syncopated: 
         }
     }
 }
+
+internal object DrumPattern {
+    const val STEPS_PER_BAR = 8
+    private val steadyKicks = listOf(0, 4)
+    private val syncopatedKicks = listOf(0, 3, 5, 7)
+
+    fun kickSteps(syncopated: Boolean): List<Int> = if (syncopated) syncopatedKicks else steadyKicks
+
+    fun isBackbeat(step: Int): Boolean = step == 2 || step == 6
+}

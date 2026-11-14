@@ -13,7 +13,6 @@
     <string name="speech_complete">음성 인식 완료</string>
     <string name="speech_timeout">음성 인식 시간이 초과되었습니다.</string>
     <string name="speech_error">음성 인식 오류 (%1$s)</string>
-    <string name="app_subtitle">함께 달린 속도로, 여행의 한마디에 반주를 더해요.</string>
     <string name="story_heading">여행의 한마디</string>
     <string name="story_hint">오늘의 이야기를 말하거나 적어 보세요.</string>
     <string name="drive_heading">주행 기록</string>

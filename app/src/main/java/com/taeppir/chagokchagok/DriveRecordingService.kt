@@ -28,11 +28,11 @@ internal class DriveRecordingService : Service() {
 
     private val tick = object : Runnable {
         override fun run() {
-            if (SystemClock.elapsedRealtime() - lastReadingMs <= 3_000 && latestKmh >= 0f) {
+            if (SystemClock.elapsedRealtime() - lastReadingMs <= 3_000 && latestKmh >= 1f) {
                 val previous = previousKmh
                 if (previous != null && abs(latestKmh - previous) >= 8f) strongChanges++
                 previousKmh = latestKmh
-                if (latestKmh >= 1f) samples.add(latestKmh)
+                samples.add(latestKmh)
             } else {
                 previousKmh = null
             }

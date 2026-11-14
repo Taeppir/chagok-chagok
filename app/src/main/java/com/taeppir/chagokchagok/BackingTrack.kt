@@ -174,20 +174,17 @@ internal class BackingTrack(context: Context, private val onStatus: (Int) -> Uni
                 }
                 note(chord[0] - 12, start, beat * 1.6, 0.22, 2.8)
                 note(chord[0] - 12, start + 2 * beat, beat * 1.6, 0.19, 2.8)
-                val kickBeats = if (arrangement.syncopated) {
-                    doubleArrayOf(0.0, 1.5, 2.5, 3.5)
-                } else {
-                    doubleArrayOf(0.0, 2.0)
-                }
                 val drumGain = when (arrangement.genre) {
                     Genre.CityPop -> 0.31
                     Genre.LoFi -> 0.22
                     Genre.Acoustic -> 0.12
                 }
-                for (position in kickBeats) percussion(start + position * beat, 0.24, drumGain, kick = true)
-                for (step in 0..7) {
+                for (step in DrumPattern.kickSteps(arrangement.syncopated)) {
+                    percussion(start + step * beat / 2, 0.24, drumGain, kick = true)
+                }
+                for (step in 0 until DrumPattern.STEPS_PER_BAR) {
                     val position = step / 2.0 + if (arrangement.genre == Genre.LoFi && step % 2 == 1) 0.08 else 0.0
-                    val accent = if (step == 2 || step == 6) 0.15 else 0.045
+                    val accent = if (DrumPattern.isBackbeat(step)) 0.15 else 0.045
                     percussion(start + position * beat, 0.12, accent, kick = false)
                 }
                 for ((step, pitch) in melody[bar].withIndex()) {

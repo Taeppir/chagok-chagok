@@ -13,15 +13,16 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
+import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
-import android.text.Editable
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -35,6 +36,7 @@ class MainActivity : Activity() {
     private lateinit var weatherButton: Button
     private lateinit var genreLabel: TextView
     private lateinit var rhythmLabel: TextView
+    private lateinit var beatPattern: BeatPatternView
     private lateinit var driveStatus: TextView
     private lateinit var driveButton: Button
     private lateinit var tempo: TextView
@@ -71,34 +73,41 @@ class MainActivity : Activity() {
         }
         selectedExample = savedInstanceState?.getInt("example")?.takeIf { it > 0 }
 
-        val compact = resources.configuration.screenWidthDp < 700
+        val compact = resources.configuration.screenWidthDp < 950
+        val gutter = dp(if (compact) 24 else 56)
         val content = column().apply {
-            setPadding(dp(if (compact) 24 else 48), dp(32), dp(if (compact) 24 else 48), dp(32))
+            setPadding(gutter, dp(32), gutter, dp(48))
             isFocusableInTouchMode = true
         }
-        val title = label(R.string.app_name, 52f, INK, bold = true).apply {
-            background = shape(ACCENT, 24)
-            setPadding(dp(22), dp(4), dp(22), dp(6))
+        val masthead = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_chagok)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
+            addView(heading(R.string.app_name, 31f).apply { letterSpacing = -0.06f },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                    .apply { marginStart = dp(12) })
         }
-        content.addView(title, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        content.addSpaced(label(R.string.app_subtitle, 23f, MUTED), 5)
+        content.addView(masthead)
+        content.addSpaced(rule(), 20, 2)
 
         val panels = LinearLayout(this).apply {
             orientation = if (compact) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.TOP
         }
         val storyPanel = buildStoryPanel()
-        val musicPanel = buildMusicPanel()
+        val musicPanel = buildMusicPanel(compact)
         if (compact) {
             panels.addView(storyPanel)
-            panels.addSpaced(musicPanel, 20)
+            panels.addSpaced(musicPanel, 40)
         } else {
-            panels.addView(storyPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            panels.addView(musicPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dp(24)
+            panels.addView(storyPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.9f))
+            panels.addView(musicPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f).apply {
+                marginStart = dp(56)
             })
         }
-        content.addSpaced(panels, 28)
+        content.addSpaced(panels, 36)
         setContentView(ScrollView(this).apply {
             setBackgroundColor(BACKGROUND)
             isFillViewport = true
@@ -117,73 +126,95 @@ class MainActivity : Activity() {
         updateDrive()
     }
 
-    private fun buildStoryPanel() = panel().apply {
-        addView(label(R.string.story_heading, 27f, INK, bold = true))
+    private fun buildStoryPanel() = column().apply {
+        addView(heading(R.string.drive_heading, 32f))
+        driveStatus = status(R.string.drive_idle)
+        addSpaced(driveStatus, 8)
+        driveButton = action(R.string.drive_start, ButtonStyle.Outline, R.drawable.ic_track_record) { toggleRecording() }
+        addSpaced(driveButton, 16)
+        addSpaced(rule(), 32, 1)
+
         story = EditText(this@MainActivity).apply {
+            id = View.generateViewId()
             setText(trip.story)
             setHint(R.string.story_hint)
             setTextColor(INK)
             setHintTextColor(MUTED)
-            textSize = 22f
+            textSize = 23f
             gravity = Gravity.TOP or Gravity.START
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             minLines = 3
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = shape(EDITOR, 16, BORDER)
+            maxLines = 5
+            minHeight = dp(110)
+            setPadding(dp(20), dp(14), dp(20), dp(14))
+            background = StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_focused), shape(SURFACE, 10, INK, 3))
+                addState(intArrayOf(), shape(SURFACE, 10, CONTROL_BORDER))
+            }
             setSelectAllOnFocus(false)
         }
-        addSpaced(story, 18)
-        speechButton = action(R.string.speech_start) { toggleSpeech() }
-        addSpaced(speechButton, 16)
-        speechStatus = label(R.string.speech_idle, 17f, MUTED)
-        addSpaced(speechStatus, 12)
-        weatherButton = action(R.string.weather_unknown) { chooseWeather() }
+        addSpaced(heading(R.string.story_heading, 32f).apply { labelFor = story.id }, 24)
+        addSpaced(story, 12)
+        speechButton = action(R.string.speech_start, ButtonStyle.Plain, R.drawable.ic_track_mic) { toggleSpeech() }
+        addSpaced(speechButton, 12)
+        speechStatus = status(R.string.speech_idle)
+        addSpaced(speechStatus, 4)
+        weatherButton = action(R.string.weather_unknown, ButtonStyle.Plain, R.drawable.ic_track_weather) { chooseWeather() }
         addSpaced(weatherButton, 16)
-
-        addSpaced(label(R.string.drive_heading, 24f, INK, bold = true), 24)
-        driveStatus = label(R.string.drive_idle, 18f, MUTED)
-        addSpaced(driveStatus, 8)
-        driveButton = action(R.string.drive_start) { toggleRecording() }
-        addSpaced(driveButton, 14)
     }
 
-    private fun buildMusicPanel() = panel().apply {
-        addView(label(R.string.track_heading, 27f, INK, bold = true))
-        tempo = label(R.string.track_tempo_placeholder, 68f, INK, bold = true)
-        addSpaced(tempo, 10)
-        tempoSource = label(R.string.track_default, 19f, MUTED)
-        addSpaced(tempoSource, 1)
-        genreLabel = label(R.string.genre_acoustic, 25f, INK, bold = true)
-        addSpaced(genreLabel, 16)
-        rhythmLabel = label(R.string.rhythm_steady, 18f, MUTED)
-        addSpaced(rhythmLabel, 5)
-        playButton = action(R.string.track_play, primary = true) {
+    private fun buildMusicPanel(compact: Boolean) = column().apply {
+        addView(heading(R.string.track_heading, 32f))
+        val sleeve = column().apply {
+            setPadding(dp(28), dp(24), dp(28), dp(24))
+            background = shape(ACCENT, 16)
+            genreLabel = label(R.string.genre_acoustic, 25f, INK, bold = true)
+            addView(genreLabel)
+            tempo = label(R.string.track_tempo_placeholder, if (compact) 54f else 84f, INK, bold = true).apply {
+                typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+                letterSpacing = -0.025f
+                includeFontPadding = false
+            }
+            addSpaced(tempo, 6)
+            tempoSource = label(R.string.track_default, 20f, INK)
+            addSpaced(tempoSource, 4)
+            beatPattern = BeatPatternView(this@MainActivity, INK).apply {
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            addSpaced(beatPattern, 16, if (compact) 65 else 86)
+            rhythmLabel = label(R.string.rhythm_steady, 19f, INK)
+            addSpaced(rhythmLabel, 12)
+        }
+        addSpaced(sleeve, 16)
+
+        playButton = action(R.string.track_play, ButtonStyle.Solid, R.drawable.ic_track_play) {
             if (track.active) stopTrack() else if (!restricted) {
                 if (speech != null) finishSpeech(R.string.speech_stopped)
                 track.play(currentArrangement())
             }
             updateControls()
         }
-        addSpaced(playButton, 20)
-        trackStatus = label(R.string.track_hint, 17f, MUTED)
-        addSpaced(trackStatus, 12)
-        addSpaced(label(R.string.track_examples, 20f, INK, bold = true), 24)
-        slowButton = action(R.string.track_example_slow) { selectExample(SLOW_EXAMPLE) }
-        fastButton = action(R.string.track_example_fast) { selectExample(FAST_EXAMPLE) }
+        addSpaced(playButton, 24)
+        trackStatus = status(R.string.track_hint)
+        addSpaced(trackStatus, 8)
+
+        addSpaced(heading(R.string.track_examples, 21f), 24)
+        slowButton = action(R.string.track_example_slow, ButtonStyle.Outline) { selectExample(SLOW_EXAMPLE) }
+        fastButton = action(R.string.track_example_fast, ButtonStyle.Outline) { selectExample(FAST_EXAMPLE) }
         val examples = LinearLayout(this@MainActivity).apply {
-            orientation = if (resources.configuration.screenWidthDp < 700) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            orientation = if (compact || resources.configuration.fontScale > 1.25f) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             if (orientation == LinearLayout.VERTICAL) {
                 addView(slowButton)
-                addSpaced(fastButton, 8)
+                addSpaced(fastButton, 12)
             } else {
                 addView(slowButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 addView(fastButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginStart = dp(12)
+                    marginStart = dp(16)
                 })
             }
         }
-        addSpaced(examples, 10)
+        addSpaced(examples, 12)
     }
 
     override fun onStart() {
@@ -287,31 +318,39 @@ class MainActivity : Activity() {
 
     private fun chooseWeather() {
         if (restricted) return
-        val choices = Weather.entries
-        AlertDialog.Builder(this)
+        val choices = column().apply {
+            setPadding(dp(24), dp(12), dp(24), dp(24))
+        }
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.weather_heading)
-            .setSingleChoiceItems(choices.map { getString(it.label) }.toTypedArray(), trip.weather.ordinal) { dialog, index ->
+            .setView(ScrollView(this).apply { addView(choices) })
+            .create()
+        Weather.entries.forEach { option ->
+            choices.addSpaced(action(option.label, ButtonStyle.Outline) {
                 if (!restricted) {
                     stopTrack()
-                    trip.weather = choices[index]
+                    trip.weather = option
                     updateControls()
                 }
                 dialog.dismiss()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            }.apply { isSelected = trip.weather == option }, 8)
+        }
+        choices.addSpaced(action(android.R.string.cancel, ButtonStyle.Plain) { dialog.dismiss() }, 16)
+        dialog.show()
     }
 
     private fun currentArrangement(): Arrangement {
         val profile = trip.profile
         val bpm = selectedExample?.let { DriveProfile(it.toFloat(), 0).tempo }
             ?: profile?.tempo ?: DriveProfile.DEFAULT_TEMPO
-        return Arrangement.recommend(bpm, trip.weather, story.text.toString(), profile?.dynamic == true)
+        return Arrangement.recommend(bpm, trip.weather, story.text.toString(), selectedExample == null && profile?.dynamic == true)
     }
 
     private fun updateControls() {
         val activeRecording = recording == DriveRecordingService.RecordingStatus.Recording
         driveButton.setText(if (activeRecording) R.string.drive_stop else R.string.drive_start)
+        driveButton.isSelected = activeRecording
+        driveButton.setIcon(if (activeRecording) R.drawable.ic_track_stop else R.drawable.ic_track_record)
         story.isEnabled = !restricted
         driveButton.isEnabled = !restricted
         speechButton.isEnabled = !restricted
@@ -324,6 +363,7 @@ class MainActivity : Activity() {
         fastButton.isSelected = selectedExample == FAST_EXAMPLE
         val arrangement = currentArrangement()
         tempo.text = getString(R.string.track_tempo, arrangement.bpm)
+        beatPattern.setPattern(arrangement.syncopated)
         genreLabel.text = getString(R.string.genre_value, getString(arrangement.genre.label))
         rhythmLabel.text = getString(
             R.string.rhythm_value,
@@ -334,6 +374,7 @@ class MainActivity : Activity() {
             ?: trip.profile?.let { getString(R.string.track_drive_source, it.medianKmh) }
             ?: getString(R.string.track_default)
         playButton.setText(if (track.active) R.string.track_stop else R.string.track_play)
+        playButton.setIcon(if (track.active) R.drawable.ic_track_stop else R.drawable.ic_track_play)
     }
 
     private fun stopTrack() {
@@ -352,6 +393,7 @@ class MainActivity : Activity() {
         updateControls()
         speechStatus.setText(R.string.speech_connecting)
         speechButton.setText(R.string.speech_stop)
+        speechButton.setIcon(R.drawable.ic_track_stop)
         speech = KoreanSpeech(
             context = applicationContext,
             onListening = { speechStatus.setText(R.string.speech_listening) },
@@ -369,47 +411,86 @@ class MainActivity : Activity() {
         speech = null
         speechStatus.text = getString(status, *args)
         speechButton.setText(R.string.speech_start)
+        speechButton.setIcon(R.drawable.ic_track_mic)
     }
 
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-    private fun panel() = column().apply {
-        setPadding(dp(24), dp(24), dp(24), dp(24))
-        background = shape(PANEL, 26, BORDER)
+    private fun heading(id: Int, size: Float) = label(id, size, INK, bold = true).apply {
+        isAccessibilityHeading = true
+    }
+
+    private fun status(id: Int) = label(id, 19f, MUTED).apply {
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
     }
 
     private fun label(id: Int, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
         setText(id)
         textSize = size
         setTextColor(color)
-        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
     }
 
-    private fun action(id: Int, primary: Boolean = false, click: () -> Unit) = Button(this).apply {
+    private enum class ButtonStyle { Outline, Plain, Solid }
+
+    private fun action(id: Int, style: ButtonStyle, icon: Int? = null, click: () -> Unit) = Button(this).apply {
         setText(id)
         isAllCaps = false
-        textSize = 18f
+        textSize = if (style == ButtonStyle.Solid) 25f else 21f
+        gravity = Gravity.CENTER_VERTICAL or if (icon == null) Gravity.CENTER_HORIZONTAL else Gravity.START
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         minHeight = dp(76)
-        setPadding(dp(16), dp(10), dp(16), dp(10))
-        val colors = arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_selected), intArrayOf())
-        setTextColor(ColorStateList(colors, intArrayOf(MUTED, INK, INK)))
-        val fill = StateListDrawable().apply {
-            addState(colors[0], shape(PANEL, 14, BORDER))
-            addState(colors[1], shape(ACCENT, 14, ACCENT_BORDER))
-            addState(colors[2], shape(if (primary) ACCENT else BUTTON, 14, if (primary) ACCENT_BORDER else BORDER))
+        minimumWidth = dp(76)
+        stateListAnimator = null
+        setPadding(dp(20), dp(12), dp(20), dp(12))
+        val disabled = intArrayOf(-android.R.attr.state_enabled)
+        val focused = intArrayOf(android.R.attr.state_focused)
+        val selected = intArrayOf(android.R.attr.state_selected)
+        val fill = when (style) {
+            ButtonStyle.Outline -> SURFACE
+            ButtonStyle.Plain -> Color.TRANSPARENT
+            ButtonStyle.Solid -> INK
         }
-        background = RippleDrawable(ColorStateList.valueOf(0x22000000), fill, null)
+        val foreground = if (style == ButtonStyle.Solid) Color.WHITE else INK
+        val outline = if (style == ButtonStyle.Outline) CONTROL_BORDER else null
+        val inkStates = ColorStateList(
+            arrayOf(disabled, focused, selected, intArrayOf()),
+            intArrayOf(MUTED, INK, INK, foreground),
+        )
+        setTextColor(inkStates)
+        compoundDrawableTintList = inkStates
+        compoundDrawablePadding = dp(12)
+        icon?.let { setIcon(it) }
+        val states = StateListDrawable().apply {
+            addState(disabled, shape(BACKGROUND, 10, RULE))
+            addState(focused, shape(ACCENT, 10, INK, 3))
+            addState(selected, shape(ACCENT, 10, INK, 2))
+            addState(intArrayOf(), shape(fill, 10, outline))
+        }
+        background = RippleDrawable(ColorStateList.valueOf(0x38748167), states, shape(Color.WHITE, 10))
         setOnClickListener { click() }
     }
 
-    private fun shape(color: Int, radius: Int, stroke: Int? = null) = GradientDrawable().apply {
-        setColor(color)
-        cornerRadius = dp(radius).toFloat()
-        if (stroke != null) setStroke(dp(1), stroke)
+    private fun Button.setIcon(id: Int) {
+        val icon = context.getDrawable(id)?.mutate()
+        icon?.setBounds(0, 0, dp(24), dp(24))
+        setCompoundDrawablesRelative(icon, null, null, null)
     }
 
-    private fun LinearLayout.addSpaced(view: View, top: Int) {
-        addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+    private fun rule() = View(this).apply {
+        setBackgroundColor(RULE)
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    private fun shape(color: Int, radius: Int, stroke: Int? = null, strokeWidth: Int = 1) = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = dp(radius).toFloat()
+        if (stroke != null) setStroke(dp(strokeWidth), stroke)
+    }
+
+    private fun LinearLayout.addSpaced(view: View, top: Int, heightDp: Int? = null) {
+        addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+            heightDp?.let(::dp) ?: ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(top)
         })
     }
@@ -420,14 +501,12 @@ class MainActivity : Activity() {
         const val SPEED_PERMISSION_REQUEST = 1
         const val SLOW_EXAMPLE = 20
         const val FAST_EXAMPLE = 72
-        val BACKGROUND = Color.rgb(246, 248, 235)
-        val PANEL = Color.WHITE
-        val EDITOR = Color.rgb(247, 249, 240)
-        val BUTTON = Color.rgb(236, 242, 221)
-        val BORDER = Color.rgb(209, 221, 189)
-        val INK = Color.rgb(27, 43, 15)
-        val MUTED = Color.rgb(75, 88, 65)
+        val BACKGROUND = Color.rgb(249, 248, 243)
+        val SURFACE = Color.WHITE
+        val RULE = Color.rgb(211, 212, 200)
+        val CONTROL_BORDER = Color.rgb(121, 126, 111)
+        val INK = Color.rgb(24, 29, 19)
+        val MUTED = Color.rgb(76, 82, 69)
         val ACCENT = Color.rgb(194, 249, 57)
-        val ACCENT_BORDER = Color.rgb(112, 157, 34)
     }
 }
