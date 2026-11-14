@@ -52,8 +52,7 @@ class MainActivity : Activity() {
     private lateinit var tempo: TextView
     private lateinit var tempoSource: TextView
     private lateinit var playButton: Button
-    private lateinit var slowButton: Button
-    private lateinit var fastButton: Button
+    private val instrumentTiles = mutableListOf<Button>()
     private lateinit var trackStatus: TextView
     private lateinit var playProgress: ProgressBar
     private lateinit var playTime: TextView
@@ -72,7 +71,7 @@ class MainActivity : Activity() {
             }
             playTime.text = if (track.active) "%d:%02d / %d:%02d · %s".format(
                 current / 60, current % 60, total / 60, total % 60, section
-            ) else "16마디 · 인트로 / 벌스 / 코러스 / 아웃트로"
+            ) else "16마디 · 준비 완료"
             main.postDelayed(this, 1_500)
         }
     }
@@ -117,7 +116,7 @@ class MainActivity : Activity() {
                 setImageResource(R.drawable.ic_chagok)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }, LinearLayout.LayoutParams(dp(48), dp(48)))
-            addView(heading(R.string.app_name, 31f).apply { letterSpacing = -0.06f },
+            addView(heading(R.string.app_name, 31f).apply { letterSpacing = 0f },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     .apply { marginStart = dp(12) })
         }
@@ -164,9 +163,9 @@ class MainActivity : Activity() {
         addView(heading(R.string.drive_heading, 32f))
         driveStatus = status(R.string.drive_idle)
         addSpaced(driveStatus, 8)
-        driveButton = action(R.string.drive_start, ButtonStyle.Outline, R.drawable.ic_track_record) { toggleRecording() }
+        driveButton = action(R.string.drive_start, ButtonStyle.Drive, R.drawable.ic_car) { toggleRecording() }
         addSpaced(driveButton, 16)
-        addSpaced(rule(), 32, 1)
+
 
         story = EditText(this@MainActivity).apply {
             id = View.generateViewId()
@@ -178,9 +177,9 @@ class MainActivity : Activity() {
             gravity = Gravity.TOP or Gravity.START
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            minLines = 3
-            maxLines = 5
-            minHeight = dp(110)
+            minLines = 2
+            maxLines = 4
+            minHeight = dp(90)
             setPadding(dp(20), dp(14), dp(20), dp(14))
             background = StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_focused), shape(SURFACE, 10, INK, 3))
@@ -195,16 +194,21 @@ class MainActivity : Activity() {
         speechStatus = status(R.string.speech_idle)
         addSpaced(speechStatus, 4)
         weatherButton = action(R.string.weather_unknown, ButtonStyle.Plain, R.drawable.ic_track_weather) { chooseWeather() }
-        addSpaced(weatherButton, 16)
-        addSpaced(heading(R.string.instrument_title, 25f), 20)
+        addSpaced(weatherButton, 12)
+        addSpaced(heading(R.string.instrument_title, 25f), 24)
+        val instrumentNames = listOf("와이퍼", "창문", "문", "깜빡이")
+        val instrumentIcons = listOf(R.drawable.ic_wiper, R.drawable.ic_window, R.drawable.ic_door, R.drawable.ic_signal)
+        instrumentNames.chunked(2).forEachIndexed { row, names ->
+            addSpaced(buttonRow(names.mapIndexed { col, name ->
+                val index = row * 2 + col
+                action(R.string.instrument_demo, ButtonStyle.Plain, instrumentIcons[index]) {
+                    showInstrumentDetails()
+                }.apply { text = name; instrumentTiles.add(this) }
+            }), 10)
+        }
         signalLabel = status(R.string.instrument_hint)
-        addSpaced(signalLabel, 12)
-        addSpaced(action(R.string.instrument_demo, ButtonStyle.Plain) { chooseInstruments() }, 8)
-        addSpaced(action(R.string.remix, ButtonStyle.Plain) {
-            stopTrack()
-            variation = (variation + 1) % 16
-            updateControls()
-        }, 8)
+        addSpaced(signalLabel, 8)
+
 
 
     }
@@ -236,8 +240,8 @@ class MainActivity : Activity() {
             addSpaced(rhythmLabel, 12)
         }
         addSpaced(sleeve, 16)
-        genreButton = action(R.string.choose_genre, ButtonStyle.Plain) { chooseGenre() }
-        addSpaced(genreButton, 12)
+        genreButton = action(R.string.choose_genre, ButtonStyle.Plain, R.drawable.ic_music) { chooseGenre() }
+
 
         playButton = action(R.string.track_play, ButtonStyle.Solid, R.drawable.ic_track_play) {
             if (track.active) stopTrack() else if (!restricted) {
@@ -246,36 +250,34 @@ class MainActivity : Activity() {
             }
             updateControls()
         }
-        addSpaced(playButton, 24)
+        addSpaced(playButton, 20)
         trackStatus = status(R.string.track_hint)
         addSpaced(trackStatus, 8)
         playProgress = ProgressBar(this@MainActivity, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000
             progressTintList = ColorStateList.valueOf(Color.rgb(76, 66, 193))
             progressBackgroundTintList = ColorStateList.valueOf(0x335B67B0)
-            contentDescription = "반주 재생 진행률"
+            contentDescription = "믹스 재생 진행률"
         }
         addSpaced(playProgress, 12, 6)
         playTime = status(R.string.track_hint)
         addSpaced(playTime, 8)
-        mixButton = action(R.string.rap_mode, ButtonStyle.Plain) { chooseMix() }
-        addSpaced(mixButton, 12)
-        addSpaced(heading(R.string.track_examples, 21f), 24)
-        slowButton = action(R.string.track_example_slow, ButtonStyle.Outline) { selectExample(SLOW_EXAMPLE) }
-        fastButton = action(R.string.track_example_fast, ButtonStyle.Outline) { selectExample(FAST_EXAMPLE) }
-        val examples = LinearLayout(this@MainActivity).apply {
-            orientation = if (compact || resources.configuration.fontScale > 1.25f) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
-            if (orientation == LinearLayout.VERTICAL) {
-                addView(slowButton)
-                addSpaced(fastButton, 12)
-            } else {
-                addView(slowButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(fastButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    marginStart = dp(16)
-                })
-            }
+        mixButton = action(R.string.rap_mode, ButtonStyle.Plain, R.drawable.ic_mixer) { chooseMix() }
+        addSpaced(buttonRow(listOf(genreButton, mixButton)), 16)
+        val remix = action(R.string.remix, ButtonStyle.Plain, R.drawable.ic_shuffle) {
+            stopTrack()
+            variation = (variation + 1) % 16
+            updateControls()
         }
-        addSpaced(examples, 12)
+        val examples = action(R.string.track_examples, ButtonStyle.Plain, R.drawable.ic_car) {
+            choiceSheet("속도 미리듣기", listOf(
+                "느린 길 · 20 km/h" to { selectedExample = SLOW_EXAMPLE },
+                "빠른 길 · 72 km/h" to { selectedExample = FAST_EXAMPLE },
+                "실제 주행 기록 사용" to { selectedExample = null },
+            ))
+        }
+        addSpaced(buttonRow(listOf(remix, examples)), 10)
+
     }
 
     override fun onStart() {
@@ -366,7 +368,7 @@ class MainActivity : Activity() {
         val status = when (recording) {
             DriveRecordingService.RecordingStatus.Recording -> getString(R.string.drive_recording_hint)
             DriveRecordingService.RecordingStatus.NotEnoughData -> getString(R.string.drive_empty)
-            else -> profile?.let { getString(R.string.drive_summary, it.medianKmh, it.sampleCount) }
+            else -> profile?.let { getString(R.string.drive_summary, it.medianKmh) }
                 ?: getString(R.string.drive_idle)
         }
         driveStatus.text = status
@@ -430,6 +432,28 @@ class MainActivity : Activity() {
         "반복 재생 끄기" to { track.looping = false },
     ))
 
+    private fun showInstrumentDetails() {
+        if (restricted) return
+        AlertDialog.Builder(this)
+            .setTitle("차 안의 악기들")
+            .setMessage("와이퍼 → 셰이커\n창문 → 벨과 신스\n문 → 클랩\n깜빡이 → 림샷\n\n" +
+                (trip.profile?.signalStatus?.takeIf { it.isNotEmpty() } ?: "기록을 마치면 차량 신호를 확인할 수 있어요.") +
+                "\n\n편곡 ${variation + 1}")
+            .setPositiveButton("악기 미리듣기") { _, _ -> chooseInstruments() }
+            .setNegativeButton("닫기", null).show()
+    }
+
+    private fun buttonRow(buttons: List<Button>) = LinearLayout(this).apply {
+        orientation = if (resources.configuration.fontScale > 1.25f ||
+            resources.configuration.screenWidthDp < 500) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+        buttons.forEachIndexed { index, button ->
+            if (orientation == LinearLayout.VERTICAL) addSpaced(button, if (index == 0) 0 else 10)
+            else addView(button, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (index > 0) marginStart = dp(12)
+            })
+        }
+    }
+
     private fun chooseInstruments() = choiceSheet("악기 미리듣기 · 가상 신호", listOf(
         "와이퍼 → 촘촘한 셰이커" to { preview = true; previewWipers = 4 },
         "창문 → 벨과 공기감 있는 신스" to { preview = true; previewWindows = 4 },
@@ -455,34 +479,32 @@ class MainActivity : Activity() {
         val activeRecording = recording == DriveRecordingService.RecordingStatus.Recording
         driveButton.setText(if (activeRecording) R.string.drive_stop else R.string.drive_start)
         driveButton.isSelected = activeRecording
-        driveButton.setIcon(if (activeRecording) R.drawable.ic_track_stop else R.drawable.ic_track_record)
+        driveButton.setIcon(if (activeRecording) R.drawable.ic_track_stop else R.drawable.ic_car)
         story.isEnabled = !restricted
         driveButton.isEnabled = !restricted
         speechButton.isEnabled = !restricted
         weatherButton.isEnabled = !restricted
         weatherButton.text = getString(R.string.weather_value, getString(trip.weather.label))
         playButton.isEnabled = !restricted && !activeRecording
-        slowButton.isEnabled = !restricted && !activeRecording
-        fastButton.isEnabled = !restricted && !activeRecording
-        slowButton.isSelected = selectedExample == SLOW_EXAMPLE
-        fastButton.isSelected = selectedExample == FAST_EXAMPLE
         val arrangement = currentArrangement()
-        genreButton.text = "장르 · " + (trip.genre?.let { getString(it.label) } ?: "자동 추천")
-        mixButton.text = "믹스 · " + (if (trip.punchy) "둥둥 베이스 · " else "소프트 · ") + (if (trip.rapMode) "랩 모드" else "멜로디") + (if (track.looping) " · 반복" else "")
+        genreButton.text = (trip.genre?.let { getString(it.label) } ?: "자동 장르") + " ▾"
+        mixButton.text = "믹스 설정 ▾"
         genreButton.isEnabled = !restricted
         mixButton.isEnabled = !restricted
-        signalLabel.text = (if (preview) "악기 미리듣기" else "주행에서 모은 소리") +
-            " · 와이퍼 ${arrangement.wipers} · 창문 ${arrangement.windows} · 문 ${arrangement.doors} · 방향지시등 ${arrangement.signals}" +
-            (if (!preview && trip.profile?.signalStatus?.isNotEmpty() == true) "\n${trip.profile?.signalStatus}" else "") +
-            "\n편곡 ${variation + 1} · 와이퍼 → 셰이커 · 창문 → 벨 · 문 → 클랩 · 방향지시등 → 림샷"
+        val counts = listOf(arrangement.wipers, arrangement.windows, arrangement.doors, arrangement.signals)
+        val names = listOf("와이퍼", "창문", "문", "깜빡이")
+        instrumentTiles.forEachIndexed { index, tile ->
+            tile.text = "${names[index]}  ${counts[index]}"
+            tile.isSelected = counts[index] > 0
+            tile.isEnabled = !restricted
+            tile.contentDescription = "${names[index]} 변화 ${counts[index]}회, 악기 상세 보기"
+        }
+        signalLabel.text = if (preview) "가상 신호 · 미리듣기" else "주행 신호 · 악기를 누르면 자세히"
         tempo.text = getString(R.string.track_tempo, arrangement.bpm)
         beatPattern.setPattern(arrangement)
         genreLabel.text = getString(arrangement.genre.label) + " · DRIVE MIX"
-        rhythmLabel.text = getString(
-            R.string.rhythm_value,
-            getString(if (arrangement.syncopated) R.string.rhythm_dynamic else R.string.rhythm_steady),
-            getString(arrangement.genre.reason),
-        )
+        rhythmLabel.text = (if (trip.punchy) "둥둥 베이스" else "소프트") +
+            (if (trip.rapMode) " · 랩 모드" else " · 멜로디") + (if (track.looping) " · 반복" else "")
         tempoSource.text = selectedExample?.let { getString(R.string.track_example_source, it) }
             ?: trip.profile?.let { getString(R.string.track_drive_source, it.medianKmh) }
             ?: getString(R.string.track_default)
@@ -531,6 +553,7 @@ class MainActivity : Activity() {
 
     private fun heading(id: Int, size: Float) = label(id, size, INK, bold = true).apply {
         isAccessibilityHeading = true
+        if (size >= 25f) typeface = resources.getFont(R.font.gugi_regular)
     }
 
     private fun status(id: Int) = label(id, 19f, MUTED).apply {
@@ -544,15 +567,15 @@ class MainActivity : Activity() {
         if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
     }
 
-    private enum class ButtonStyle { Outline, Plain, Solid }
+    private enum class ButtonStyle { Outline, Plain, Solid, Drive }
 
     private fun action(id: Int, style: ButtonStyle, icon: Int? = null, click: () -> Unit) = Button(this).apply {
         setText(id)
         isAllCaps = false
-        textSize = if (style == ButtonStyle.Solid) 25f else 21f
+        textSize = if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) 29f else 21f
         gravity = Gravity.CENTER_VERTICAL or if (icon == null) Gravity.CENTER_HORIZONTAL else Gravity.START
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        minHeight = dp(76)
+        minHeight = dp(if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) 100 else 76)
         minimumWidth = dp(76)
         stateListAnimator = null
         setPadding(dp(20), dp(12), dp(20), dp(12))
@@ -561,10 +584,11 @@ class MainActivity : Activity() {
         val selected = intArrayOf(android.R.attr.state_selected)
         val fill = when (style) {
             ButtonStyle.Outline -> SURFACE
-            ButtonStyle.Plain -> Color.TRANSPARENT
+            ButtonStyle.Plain -> 0xB3FFFFFF.toInt()
+            ButtonStyle.Drive -> Color.rgb(35, 102, 217)
             ButtonStyle.Solid -> Color.rgb(76, 66, 193)
         }
-        val foreground = if (style == ButtonStyle.Solid) Color.WHITE else INK
+        val foreground = if (style == ButtonStyle.Solid || style == ButtonStyle.Drive) Color.WHITE else INK
         val outline = if (style == ButtonStyle.Outline) CONTROL_BORDER else null
         val inkStates = ColorStateList(
             arrayOf(disabled, focused, selected, intArrayOf()),
@@ -578,7 +602,7 @@ class MainActivity : Activity() {
             addState(disabled, shape(BACKGROUND, 10, RULE))
             addState(focused, shape(ACCENT, 10, INK, 3))
             addState(selected, shape(ACCENT, 10, INK, 2))
-            addState(intArrayOf(), shape(fill, 10, outline))
+            addState(intArrayOf(), shape(fill, 20, outline))
         }
         background = RippleDrawable(ColorStateList.valueOf(0x38748167), states, shape(Color.WHITE, 10))
         setOnClickListener { click() }
@@ -586,7 +610,7 @@ class MainActivity : Activity() {
 
     private fun Button.setIcon(id: Int) {
         val icon = context.getDrawable(id)?.mutate()
-        icon?.setBounds(0, 0, dp(24), dp(24))
+        icon?.setBounds(0, 0, dp(32), dp(32))
         setCompoundDrawablesRelative(icon, null, null, null)
     }
 
