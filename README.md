@@ -7,7 +7,7 @@
 차량 신호와 차 안의 이야기를 **우리만의 음악**으로 남기는 Pleos Connect 앱.
 가족 여행, 친구들의 당일치기, 혼자 달린 순간까지 한 곡에 담습니다.
 
-**Pleos Connect · Kotlin · AI Music**
+**차곡LAB · Pleos Connect · Kotlin · AI Music**
 </div>
 
 ![차곡차곡 플레이어](docs/player-preview.png)
@@ -62,7 +62,9 @@ Virtual Console에서 실제 조작한 차량 신호를 앱이 수집했습니�
 
 ## 실행
 
-[서명된 APK](apk/차곡차곡_차곡차곡_release.apk)를 Pleos 에뮬레이터에 설치한 뒤 **플레이어 → 내 음악**에서 바로 체험합니다. 새 비트는 주행을 기록하거나 기본 편곡으로 들을 수 있습니다.
+검증 환경: **Pleos Connect v2.1.0 ARM64 시스템 이미지 · Android Emulator 37.2.12 · API 34 · 2560×1440 px / 160 dpi**. `chagok_pleos_api34` AVD에서 차량 패널과 앱을 함께 띄우는 분할 화면으로 확인했습니다.
+
+[서명된 APK](apk/차곡LAB_차곡차곡_release.apk)를 Pleos 에뮬레이터에 설치한 뒤 **플레이어 → 내 음악**에서 바로 체험합니다. 새 비트는 주행을 기록하거나 기본 편곡으로 들을 수 있습니다.
 
 ```sh
 # 소스에서 빌드·설치
