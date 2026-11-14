@@ -46,3 +46,9 @@ Tests cover request bounds, prompt mapping, response parsing, duplicate suppress
 This is a **single-user local development bridge**, not a publicly deployable multi-user backend. Production needs authenticated users, per-user private song storage, an atomic durable job queue, per-user/project budgets, HTTPS, retention/deletion controls and provider usage reconciliation. Do not expose this process to the public network. In a multi-user service, cache keys must be scoped to the owning user; never share family stories or song files across accounts.
 
 [Google music generation documentation](https://ai.google.dev/gemini-api/docs/music-generation) · [Pricing](https://ai.google.dev/gemini-api/docs/pricing/)
+
+## Optional lyric timing
+
+`ALIGN_LYRICS=1` enables one additional audio-analysis request after a song is generated. It is off by default to avoid extra inference costs. Timing is best-effort; failure preserves the song and plain lyrics without automatically retrying. The app shows plain scrollable lyrics when timing is unavailable. The $0.08 music price does not include this optional analysis.
+
+Names are optional and part of the request cache key. Instrument change counts determine sparse, steady or rich texture instructions. The generator receives the arrangement as text, not the locally synthesized waveform.

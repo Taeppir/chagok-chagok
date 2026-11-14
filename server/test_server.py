@@ -25,6 +25,39 @@ class MusicTests(unittest.TestCase):
         for text in ('Korean', 'rap verse', 'Rain', 'HipHop', 'shaker', 'bell', 'claps', 'rimshot', self.body['story']):
             self.assertIn(text, prompt)
 
+    def test_personalization_changes_the_recipe_without_breaking_empty_name_cache(self):
+        base = validate(self.body)
+        self.assertEqual(base, validate(dict(self.body, names='  ')))
+        variants = [dict(self.body, story='캠핑에서 별을 보았다.'), dict(self.body, names='하나, 두리'),
+                    dict(self.body, bpm=104, syncopated=True), dict(self.body, wipers=2),
+                    dict(self.body, wipers=16)]
+        prompts = [prompt_for(base)] + [prompt_for(validate(v)) for v in variants]
+        self.assertEqual(len(set(prompts)), len(prompts))
+        self.assertIn('하나, 두리', prompts[2])
+        self.assertIn('sparse accents', prompts[4])
+        self.assertIn('rich rhythmic layer', prompts[5])
+        for names in (None, ['name'], 'x' * 61):
+            with self.assertRaises(ValueError):
+                validate(dict(self.body, names=names))
+
+    def test_saved_song_retains_the_vehicle_recipe_used_for_generation(self):
+        import time
+        sent = []
+        def provider(recipe):
+            sent.append(recipe)
+            return bytes(2048), '가사'
+        store = MusicStore(self.path, 'test', provider)
+        body = dict(self.body, names='하나', bpm=104, wipers=12, windows=4, doors=2, signals=9)
+        job = store.start(body)
+        for _ in range(50):
+            if store.get(job['id'])['status'] == 'ready': break
+            time.sleep(.01)
+        saved = store.get(job['id'])
+        self.assertEqual(saved['recipe'], validate(body))
+        self.assertEqual(saved['recipe'], sent[0])
+        self.assertEqual(store.start(dict(body))['id'], job['id'])
+        self.assertEqual(len(sent), 1)
+
     def test_parses_audio_and_lyrics_from_steps(self):
         audio = b'ID3' + bytes(2048)
         result = parse_output({'steps': [{'type': 'model_output', 'content': [
